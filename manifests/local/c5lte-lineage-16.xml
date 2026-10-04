@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <remote name="github-vm03" fetch="https://github.com/vm03/" />
+
+  <project
+      path="device/samsung/c5lte"
+      name="android_device_samsung_c5lte"
+      remote="github-vm03"
+      revision="5a5ee3ae766dfda573f6512223fa724279bafdab" />
+  <project
+      path="kernel/samsung/c5lte"
+      name="android_kernel_samsung_c5lte"
+      remote="github-vm03"
+      revision="71b335bed497bbe8b9754c9c986801a66212ce4f" />
+  <project
+      path="vendor/samsung/c5lte"
+      name="proprietary_vendor_samsung_c5lte"
+      remote="github-vm03"
+      revision="ada0ddb036c256f43f32593ecf7a2593b7a8298c" />
+  <project
+      path="hardware/samsung"
+      name="LineageOS/android_hardware_samsung"
+      revision="871d3f4777603ff6c33a021fc38c9b2265c54f83" />
+</manifest>
