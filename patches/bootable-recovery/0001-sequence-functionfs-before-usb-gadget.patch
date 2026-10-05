@@ -1,0 +1,200 @@
+diff --git a/adb_install.cpp b/adb_install.cpp
+--- a/adb_install.cpp
++++ b/adb_install.cpp
+@@ -18,7 +18,6 @@
+ #include "adb_install.h"
+ 
+ #include <errno.h>
+-#include <fcntl.h>
+ #include <signal.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -27,54 +26,19 @@
+ #include <sys/wait.h>
+ #include <unistd.h>
+ 
+-#include <android-base/file.h>
+ #include <android-base/logging.h>
+ #include <android-base/properties.h>
+-#include <android-base/unique_fd.h>
+ 
+ #include "common.h"
+ #include "fuse_sideload.h"
+ #include "install.h"
+ #include "ui.h"
+ 
+-static void set_usb_driver(bool enabled) {
+-  // USB configfs doesn't use /s/c/a/a/enable.
+-  if (android::base::GetBoolProperty("sys.usb.configfs", false)) {
+-    return;
+-  }
+-
+-  static constexpr const char* USB_DRIVER_CONTROL = "/sys/class/android_usb/android0/enable";
+-  android::base::unique_fd fd(open(USB_DRIVER_CONTROL, O_WRONLY));
+-  if (fd == -1) {
+-    PLOG(ERROR) << "Failed to open driver control";
+-    return;
+-  }
+-  // Not using android::base::WriteStringToFile since that will open with O_CREAT and give EPERM
+-  // when USB_DRIVER_CONTROL doesn't exist. When it gives EPERM, we don't know whether that's due
+-  // to non-existent USB_DRIVER_CONTROL or indeed a permission issue.
+-  if (!android::base::WriteStringToFd(enabled ? "1" : "0", fd)) {
+-    PLOG(ERROR) << "Failed to set driver control";
+-  }
+-}
+-
+-static void stop_adbd() {
+-  ui->Print("Stopping adbd...\n");
+-  android::base::SetProperty("ctl.stop", "adbd");
+-  set_usb_driver(false);
+-}
+-
+-static void maybe_restart_adbd() {
+-  if (is_ro_debuggable()) {
+-    ui->Print("Restarting adbd...\n");
+-    set_usb_driver(true);
+-    android::base::SetProperty("ctl.start", "adbd");
+-  }
+-}
+-
+ static pthread_t sideload_thread;
+ static pid_t sideload_adb_pid;
+ static bool sideload_cancelled;
+ static bool sideload_started;
++static std::string saved_usb_state;
+ 
+ static void* adb_sideload_thread(void*) {
+   time_t start_time = time(nullptr);
+@@ -121,14 +85,21 @@ static void* adb_sideload_thread(void*) {
+ }
+ 
+ void sideload_start() {
+-  stop_adbd();
+-  set_usb_driver(true);
++  saved_usb_state = android::base::GetProperty("sys.usb.state", "none");
++  if (saved_usb_state != "none" && !SetUsbConfig("none")) {
++    LOG(ERROR) << "Failed to clear USB config before sideload";
++  }
+ 
+   if ((sideload_adb_pid = fork()) == 0) {
+     execl("/sbin/recovery", "recovery", "--adbd", nullptr);
+     _exit(EXIT_FAILURE);
+   }
+ 
++  // minadbd must open FunctionFS before the USB gadget is enabled.
++  if (!SetUsbConfig("sideload")) {
++    LOG(ERROR) << "Failed to set USB config to sideload";
++  }
++
+   ui->Print(
+       "\n\nNow send the package you want to apply\n"
+       "to the device with \"adb sideload <filename>\"...\n");
+@@ -180,5 +151,10 @@ void sideload_stop() {
+ 
+   ui->FlushKeys();
+ 
+-  maybe_restart_adbd();
++  if (!SetUsbConfig("none")) {
++    LOG(ERROR) << "Failed to clear USB config after sideload";
++  }
++  if (saved_usb_state != "none" && !SetUsbConfig(saved_usb_state)) {
++    LOG(ERROR) << "Failed to restore USB config to " << saved_usb_state;
++  }
+ }
+diff --git a/common.h b/common.h
+--- a/common.h
++++ b/common.h
+@@ -44,6 +44,8 @@ void ui_print(const char* format, ...);
+ 
+ bool is_ro_debuggable();
+ 
++bool SetUsbConfig(const std::string& state);
++
+ bool reboot(const std::string& command);
+ 
+ #endif  // RECOVERY_COMMON_H
+diff --git a/etc/init.rc b/etc/init.rc
+--- a/etc/init.rc
++++ b/etc/init.rc
+@@ -104,10 +104,6 @@ service adbd /sbin/adbd --root_seclabel=u:r:su:s0 --device_banner=recovery
+ on property:lineage.service.adb.root=1
+     restart adbd
+ 
+-# setup_adbd will start adb once it has checked the keys
+-on fs && property:ro.debuggable=1
+-    start setup_adbd
+-
+ on fs && property:sys.usb.configfs=1
+     mount configfs none /config
+     mkdir /config/usb_gadget/g1 0770 shell shell
+@@ -135,13 +131,38 @@ on fs
+ on property:sys.usb.config=adb
+     start adbd
+ 
++on property:sys.usb.config=none && property:sys.usb.configfs=0
++    stop adbd
++    write /sys/class/android_usb/android0/enable 0
++    setprop sys.usb.state ${sys.usb.config}
++
+ on property:sys.usb.config=adb && property:sys.usb.configfs=0
+     write /sys/class/android_usb/android0/idProduct D001
+     write /sys/class/android_usb/android0/functions adb
+     write /sys/class/android_usb/android0/enable 1
+     setprop sys.usb.state ${sys.usb.config}
+ 
++on property:sys.usb.config=sideload && property:sys.usb.configfs=0
++    write /sys/class/android_usb/android0/idProduct D001
++    write /sys/class/android_usb/android0/functions adb
++    write /sys/class/android_usb/android0/enable 1
++    setprop sys.usb.state ${sys.usb.config}
++
+ # Configfs trigger
++on property:sys.usb.config=none && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/UDC "none"
++    stop adbd
++    setprop sys.usb.ffs.ready 0
++    rm /config/usb_gadget/g1/configs/b.1/f1
++    setprop sys.usb.state ${sys.usb.config}
++
++on property:sys.usb.config=sideload && property:sys.usb.ffs.ready=1 && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idProduct 0xD001
++    write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "adb"
++    symlink /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f1
++    write /config/usb_gadget/g1/UDC ${sys.usb.controller}
++    setprop sys.usb.state ${sys.usb.config}
++
+ on property:sys.usb.config=adb && property:sys.usb.ffs.ready=1 && property:sys.usb.configfs=1
+     write /config/usb_gadget/g1/idProduct 0xD001
+     write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "adb"
+diff --git a/recovery.cpp b/recovery.cpp
+--- a/recovery.cpp
++++ b/recovery.cpp
+@@ -274,6 +274,11 @@ FILE* fopen_path(const char* path, const char* mode) {
+   return fopen(path, mode);
+ }
+ 
++bool SetUsbConfig(const std::string& state) {
++  android::base::SetProperty("sys.usb.config", state);
++  return android::base::WaitForProperty("sys.usb.state", state);
++}
++
+ // close a file, log an error if the error indicator is set
+ static void check_and_fclose(FILE *fp, const char *name) {
+     fflush(fp);
+@@ -1649,9 +1654,14 @@ static void setup_adbd() {
+     sleep(1);
+   }
+ 
+-  // Trigger (re)start of adb daemon
+-  property_set("sys.usb.config", "adb");
++  // Rebind the legacy USB gadget only after adbd is running and FunctionFS is mounted.
++  if (!SetUsbConfig("none")) {
++    LOG(ERROR) << "Failed to clear USB config before starting adbd";
++  }
+   property_set("lineage.service.adb.root", "1");
++  if (!SetUsbConfig("adb")) {
++    LOG(ERROR) << "Failed to set USB config to adb";
++  }
+ }
+ 
+ int main(int argc, char **argv) {

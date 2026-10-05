@@ -1,0 +1,72 @@
+diff --git a/board-info.txt b/board-info.txt
+--- a/board-info.txt
++++ b/board-info.txt
+@@ -1 +1 @@
+-require version-bootloader=C5000ZHU1CRJ5
++require version-bootloader=C5000ZHU1CRJ5|C5000ZCU1CSA1
+diff --git a/board/kernel.mk b/board/kernel.mk
+--- a/board/kernel.mk
++++ b/board/kernel.mk
+@@ -5,6 +5,10 @@ BOARD_KERNEL_CMDLINE := console=null androidboot.hardware=qcom user_debug=30 msm
+ BOARD_KERNEL_PAGESIZE := 2048
+ BOARD_KERNEL_TAGS_OFFSET := 0x01e00000
+ BOARD_RAMDISK_OFFSET := 0x02000000
++BOARD_MKBOOTIMG_ARGS += \
++    --ramdisk_offset $(BOARD_RAMDISK_OFFSET) \
++    --tags_offset $(BOARD_KERNEL_TAGS_OFFSET)
++
+ BOARD_KERNEL_SEPARATED_DT := true
+ BOARD_KERNEL_IMAGE_NAME := Image.gz
+ 
+diff --git a/product/init.mk b/product/init.mk
+--- a/product/init.mk
++++ b/product/init.mk
+@@ -2,5 +2,6 @@ PRODUCT_PACKAGES += \
+     init.qcom.sh \
+     init.qcom.rc \
+     init.qcom.power.rc \
++    init.recovery.qcom.power.rc \
+     init.recovery.qcom.rc \
+     ueventd.qcom.rc
+diff --git a/rootdir/Android.mk b/rootdir/Android.mk
+--- a/rootdir/Android.mk
++++ b/rootdir/Android.mk
+@@ -33,14 +33,22 @@ LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR_ETC)/init/hw
+ include $(BUILD_PREBUILT)
+ 
+-# Copy the power config for recovery too
++# Copy the power config for recovery and import it from the device recovery init.
+ include $(CLEAR_VARS)
+-LOCAL_MODULE       := init.recovery.qcom.rc
++LOCAL_MODULE       := init.recovery.qcom.power.rc
+ LOCAL_MODULE_TAGS  := optional eng
+ LOCAL_MODULE_CLASS := ETC
+ LOCAL_SRC_FILES    := etc/init.qcom.power.rc
+ LOCAL_MODULE_PATH  := $(TARGET_ROOT_OUT)
+ include $(BUILD_PREBUILT)
+ 
++include $(CLEAR_VARS)
++LOCAL_MODULE       := init.recovery.qcom.rc
++LOCAL_MODULE_TAGS  := optional eng
++LOCAL_MODULE_CLASS := ETC
++LOCAL_SRC_FILES    := etc/init.recovery.qcom.rc
++LOCAL_MODULE_PATH  := $(TARGET_ROOT_OUT)
++include $(BUILD_PREBUILT)
++
+ include $(CLEAR_VARS)
+ LOCAL_MODULE       := ueventd.qcom.rc
+ LOCAL_MODULE_STEM  := ueventd.rc
+diff --git a/rootdir/etc/init.recovery.qcom.rc b/rootdir/etc/init.recovery.qcom.rc
+new file mode 100644
+--- /dev/null
++++ b/rootdir/etc/init.recovery.qcom.rc
+@@ -0,0 +1,9 @@
++import /init.recovery.qcom.power.rc
++
++on early-init
++    # Android 28 adbd uses FunctionFS AIO by default, which this 3.10 kernel does not support.
++    setprop sys.usb.ffs.aio_compat 1
++
++on fs
++    wait /dev/block/platform/soc.0/${ro.boot.bootdevice}
++    symlink /dev/block/platform/soc.0/${ro.boot.bootdevice} /dev/block/bootdevice

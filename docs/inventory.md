@@ -1,19 +1,19 @@
 # P0 source and input inventory
 
-Last updated: 2026-10-03
+Last updated: 2026-10-04
 
-This inventory distinguishes verified online sources, source-derived candidate parameters, and facts verified from a physical device or stock package. No stock firmware package or connected device is currently available, so source declarations cannot be treated as production-hardware facts.
+This inventory distinguishes verified online sources, source-derived candidate parameters, and facts verified from a physical device or stock package. The designated device and matching CSA1 CHC stock package have now been verified as evidence, but possession of the package does not itself authorize or validate full-package flashing.
 
 ## Current local inputs
 
 | Item | Result | Evidence or notes |
 | --- | --- | --- |
-| Orchestration repository | Present as a local Git repository; first commit is an Apache-2.0-licensed project baseline; no remote | This repository worktree |
-| Android source worktree | Synchronized with a clean worktree | `/mnt/storage/android/galaxy-c5-lineage-16`; see `manifests/locked/lineage-16.0.xml` for the fully resolved manifest |
-| Stock firmware/boot/recovery/PIT | Not provided | No image, archive, or PIT exists in the repository |
-| Historical ROM/third-party recovery | Not provided | Only public source branches were investigated |
-| Test device | Not connected | `adb devices -l` is empty and USB enumeration shows no Samsung device |
-| Sensitive device data | Not collected | No serial, IMEI, EFS, or user data was read |
+| Orchestration repository | Present as a local Git repository; initial commit contains the Apache-2.0 license and the project baseline is a separate commit; no remote | This repository worktree |
+| Android source worktree | Synchronized from the pinned manifest with this repository's tracked patches applied; expected device-tree/recovery modifications and generated external vendor files make the worktree non-clean | `/mnt/storage/android/galaxy-c5-lineage-16`; see `manifests/locked/lineage-16.0.xml`; reproduce with `scripts/apply-patches.sh`, `scripts/import-stock-gnss.sh`, and `scripts/import-stock-sensors.sh` |
+| Stock firmware/boot/recovery/PIT | Matching complete `C5000ZCU1CSA1` CHC firmware was supplied and passed integrity checks; the original boot and live-device PIT were exported read-only | Original ZIP is 2,247,133,405 bytes with SHA-256 `36946cd31d1817fb3a6d9e7b5fb4f2072df3dce5169eb644d86446801a860dc9`; PIT has 42 entries; all remain outside Git; recovery had been replaced by TWRP and was later replaced with the verified Lineage recovery |
+| Historical ROM/third-party recovery | TWRP 3.2.3-0 was installed and bootable | Its recovery-partition image was exported read-only and hashed before replacement |
+| Test device | Connected and investigated through sanitized read-only checks in TWRP, Lineage recovery, and Android | Hardware confirms `SM-C5000`, `c5lte`, msm8952, and bootloader `C5000ZCU1CSA1`; serial is not committed |
+| Sensitive device data | Not collected | No IMEI, EFS, modemst, account, or user files were read; temporary ADB public-key files were removed |
 
 ## Verified public source
 
@@ -90,16 +90,26 @@ Source: [vm03/proprietary_vendor_samsung_c5lte](https://github.com/vm03/propriet
 
 ## Stock and community sources
 
-- The [Samsung official SM-C5000 update record](https://doc.samsungmobile.com/SM-C5000/000041170406/eng.html) is accessible and lists `C5000ZHU1BRA1` (Android 7.0, 2018-01-19), `C5000ZHU1CRJ5` (Android 8.0, 2018-12-06), and `C5000ZHU1CSA1` (Android 8.0, 2019-02-01). It proves that these public versions existed but does not provide the complete firmware images or source correspondence required by this project.
+- The [Samsung official SM-C5000 update record](https://doc.samsungmobile.com/SM-C5000/000041170406/eng.html) is accessible and lists `C5000ZHU1BRA1` (Android 7.0, 2018-01-19), `C5000ZHU1CRJ5` (Android 8.0, 2018-12-06), and `C5000ZHU1CSA1` (Android 8.0, 2019-02-01). It proves that these public versions existed but does not itself provide firmware images or source correspondence.
 - The [Samsung Open Source](https://opensource.samsung.com/) portal exists, but command-line access returned HTTP 403 during this investigation, so the corresponding SM-C5000 source package has not been acquired or verified.
 - The candidate [4PDA topic](https://4pda.to/forum/index.php?showtopic=743761) returned HTTP 403 during this investigation; inaccessible attachments or post contents were not treated as evidence.
 
-## Minimum genuinely missing inputs
+## Verified CSA1 stock input
 
-No additional input is required to build a software-side candidate. Advancing P1/P2 from “candidate” to “verified” requires at least:
+The user-provided `SAMFW.COM_SM-C5000_CHC_C5000ZCU1CSA1_fac.zip` passes ZIP integrity testing. It is 2,247,133,405 bytes with MD5 `887ed433bb432840ba3a9b341b215295` and SHA-256 `36946cd31d1817fb3a6d9e7b5fb4f2072df3dce5169eb644d86446801a860dc9`. Its AP member is `AP_C5000ZCU1CSA1_CL14615209_QB21439331_REV00_user_low_ship_MULTI_CERT_meta.tar.md5`.
 
-1. A complete SM-C5000 stock firmware package for a specific region and version, preserving the original file and recording its source, acquisition date, and SHA-256; prefer a package matching the test device's current bootloader/firmware.
-2. One explicitly designated SM-C5000 on which read-only ADB and system-information collection are allowed. If the system cannot enable ADB, establish a separate safe acquisition path.
-3. Before any boot/recovery write, the device's current version, OEM/FRP state, and a recoverable stock package, plus separate authorization for the exact image, hash, partition, and recovery plan.
+The raw stock system ext4 image extracted outside Git is 3,196,059,648 bytes with SHA-256 `1a113c05150d765a5e8142eac2b3d4bb29b2eecbd776fd37092a6338678f50b6`. The matching `boot.img` remains separately in a restricted directory with SHA-256 `61fb897ee98bdd1995362f7c877cb1c37b2e7cfd09422599dad3b10529fc4bbd`; its initrd SHA-256 is `dfea9868054fd0ab8b618c22d325fc436d738787cf13fa3a695634812bcd4022`.
 
-Neither the stock package nor the physical device blocks current source synchronization, static audit, or compilation.
+The GNSS evidence directory built from stock system contains 75 files, 45 of which form the hash-pinned import set for the candidate ROM. The sensor-stack import set contains the exact 28,476-byte `ram_patch.fw` and 120,508-byte legacy HAL. Original firmware, unpacked images, proprietary binaries, and generated vendor directories remain outside Git. `scripts/import-stock-gnss.sh` and `scripts/import-stock-sensors.sh` accept only the exact system image above and verify every imported SHA-256 before writing the external Android worktree.
+
+## Remaining input boundaries
+
+No additional firmware or device input is missing for the completed P0–P4 LineageOS 16 bring-up milestone. The exact GNSS and sensor-stack builds were installed under separate authorizations and passed their documented functional scopes.
+
+The following remain outside that closed milestone:
+
+1. A rehearsed full-stock restoration procedure and any authorization to write the complete factory package.
+2. P5 inputs and execution for an independent clean rebuild, byte-level reproducibility investigation, and CI.
+3. P6 source and test work for any modern-Android target.
+
+The verified factory package is rollback evidence, not blanket authorization to flash stock partitions.

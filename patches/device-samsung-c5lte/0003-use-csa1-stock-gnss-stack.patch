@@ -1,0 +1,325 @@
+diff --git a/board/shim.mk b/board/shim.mk
+index 271d5bd..df84ebe 100644
+--- a/board/shim.mk
++++ b/board/shim.mk
+@@ -3,4 +3,5 @@ TARGET_LD_SHIM_LIBS := \
+     /system/lib/libcamera_client.so|libshims_camera.so \
+     /system/vendor/lib64/libflp.so|libshims_flp.so \
+     /system/vendor/lib64/libizat_core.so|libshims_get_process_name.so \
+-    /system/vendor/lib/libflp.so|libshims_flp.so
++    /system/vendor/lib/libflp.so|libshims_flp.so \
++    /system/vendor/lib/vendor.qti.gnss@1.0_vendor.so|libshims_gnss_hidl.so
+diff --git a/libshims/Android.mk b/libshims/Android.mk
+index 2892d89..a3b637c 100644
+--- a/libshims/Android.mk
++++ b/libshims/Android.mk
+@@ -27,6 +27,17 @@ include $(BUILD_SHARED_LIBRARY)
+ 
+ include $(CLEAR_VARS)
+ 
++LOCAL_SRC_FILES := \
++    gnss_hidl/gnss_hidl.cpp
++
++LOCAL_MODULE := libshims_gnss_hidl
++LOCAL_MODULE_TAGS := optional
++LOCAL_MULTILIB := 32
++
++include $(BUILD_SHARED_LIBRARY)
++
++include $(CLEAR_VARS)
++
+ LOCAL_SRC_FILES := \
+     get_process_name/get_process_name.c
+ 
+diff --git a/manifest.xml b/manifest.xml
+index 91f55fa..fed6792 100644
+--- a/manifest.xml
++++ b/manifest.xml
+@@ -93,6 +93,15 @@
+             <instance>default</instance>
+         </interface>
+     </hal>
++    <hal format="hidl">
++        <name>vendor.qti.gnss</name>
++        <transport>hwbinder</transport>
++        <version>1.0</version>
++        <interface>
++            <name>ILocHidlGnss</name>
++            <instance>gnss_vendor</instance>
++        </interface>
++    </hal>
+     <hal format="hidl">
+         <name>android.hardware.graphics.allocator</name>
+         <transport>hwbinder</transport>
+diff --git a/product/qcom-gps.mk b/product/qcom-gps.mk
+index aa78616..3046dea 100644
+--- a/product/qcom-gps.mk
++++ b/product/qcom-gps.mk
+@@ -1,19 +1,11 @@
+-# GNSS HAL
++# CSA1 GNSS compatibility shim. The service, implementations, location
++# libraries and configuration are extracted from matching stock firmware.
+ PRODUCT_PACKAGES += \
+-    android.hardware.gnss@1.0-impl \
+-    android.hardware.gnss@1.0-service
+-
+-# GPS
+-PRODUCT_PACKAGES += \
+-    gps.msm8952 \
+-    libshims_get_process_name \
++    libshims_gnss_hidl \
+     libshims_flp
+ 
+ PRODUCT_COPY_FILES += \
+-    $(LOCAL_PATH)/gps/flp.conf:system/etc/flp.conf \
+-    $(LOCAL_PATH)/gps/gps.conf:system/etc/gps.conf \
+-    $(LOCAL_PATH)/gps/izat.conf:system/etc/izat.conf \
+-    $(LOCAL_PATH)/gps/sap.conf:system/etc/sap.conf
++    $(LOCAL_PATH)/rootdir/etc/vendor.samsung.hardware.gnss@1.0-service.rc:system/vendor/etc/init/vendor.samsung.hardware.gnss@1.0-service.rc
+ 
+ # Permissions
+ PRODUCT_COPY_FILES += \
+diff --git a/proprietary-files.txt b/proprietary-files.txt
+index 1d6046b..9d3668f 100644
+--- a/proprietary-files.txt
++++ b/proprietary-files.txt
+@@ -381,6 +381,53 @@ vendor/lib64/libgeofence.so
+ vendor/lib64/libizat_core.so
+ vendor/lib64/liblbs_core.so
+ 
++# GPS - C5000ZCU1CSA1 CHC stock
++vendor/bin/hw/vendor.samsung.hardware.gnss@1.0-service|a244085627cba7ad4bfb30c7e0e7ea246772fdcd
++vendor/bin/loc_launcher|16b65b63d55d8c9510f5d8c105b5b2198f1ccf3b
++vendor/bin/lowi-server|4f6610fd040b49ce4747be0b3549f012160f1b10
++vendor/bin/xtra-daemon|4c2aba32bfe0421a666749f2b1d85a0b3dbba167
++vendor/bin/xtwifi-client|fc0f38c35cc29aaf0e796d2287e6f4b927e82f77
++vendor/bin/xtwifi-inet-agent|f56918b3e3a2539d8038e580445574d4790e7ef2
++vendor/etc/cacert_location.pem|0789bf799c7e45d352a83e2f79ddb0cea86db85b
++vendor/etc/flp.conf|145cafb57015f43c8c610a198b82370bc61e8626
++vendor/etc/gps.conf|6848cbada4fcfe2c0eb8c00993aa65bb0aa108c0
++vendor/etc/izat.conf|889d9dcb58bb8a61579c0cb4f733bfdcf42e5985
++vendor/etc/lowi.conf|c2e6715cfafad6e643ce7eb494c2383e59039ecd
++vendor/etc/sap.conf|4a1ba91e8d6c1bc0171f2ff2fd1ee7c3c9e97294
++vendor/etc/xtra_root_cert.pem|f55a31ec4d9cf8ce2724acadecf00c779f8767db
++vendor/lib/hw/android.hardware.gnss@1.0-impl-qti.so|6c5d5941861a37608af79a4110175270428672e8
++vendor/lib/hw/vendor.qti.gnss@1.0-impl.so|087668e6bded10b90746c664c78a20f044587086
++vendor/lib/hw/vendor.samsung.hardware.gnss@1.0-impl.so|87d894a7adf4d0c34d711eda32ceb538835a707b
++lib/libfloatingfeature.so:vendor/lib/libfloatingfeature.so|0a295e7c4449af45679b82a955083c4f776e1470
++lib/libsecnativefeature.so:vendor/lib/libsecgnssfeature.so|06828b79357cd51d79bb685255db8337d40893df
++vendor/lib/libgps.utils.so:vendor/lib/libgps.csa1.so|13723f7080d7a2865003248ece39e19cafa21b68
++vendor/lib/libloc_core.so:vendor/lib/libloc_c5.so|f6aa875acc1b1aed51f61b916ca8ff4dc6e093e4
++vendor/lib/libDRPlugin.so|8cd62de0da87c8ef9b60377a9d7b732199539112
++vendor/lib/libdataitems.so|d23c82f2a6ee48f8fe97b0d0c39ba485e826aed5
++vendor/lib/libdrplugin_client.so|801829d214b945d9c040f3bc6f6fd19580fd2d76
++vendor/lib/libevent_observer.so|039a68059a6d9ec13491de50c55a5ce12ed1c9b8
++vendor/lib/libflp.so|45f4960dc72c3a13d75db5324bc969bd5630b2ac
++vendor/lib/libgdtap.so|26b32fe9f6982dab1e09bc24faaf943b3b2efb17
++vendor/lib/libgeofence.so|a027ddc9eb306ea42d5585ba2472a1df6a6330ba
++vendor/lib/libgnss.so|2b90f883cd889d465ce9ec6dbcdbe330219eb142
++vendor/lib/libgnsspps.so|7d8ba0702f4dc21adc3b9c655ca3cb308c2fe0a7
++vendor/lib/libizat_client_api.so|93250bc60f724bc7f22742c935cac02bb962d5be
++vendor/lib/libizat_core.so|fe103e2ce71ac0fd0f943220f28af72ae9b3e29d
++vendor/lib/liblbs_core.so|66b38e7f1fc20af4ea2ab31a1ae9932f35fdd86b
++vendor/lib/libloc_api_v02.so|70d08110aa91e5dad8d03b1508d6bf1618251afa
++vendor/lib/libloc_pla.so|3df59b93c0ead01950c5b986abfea2702dbecd72
++vendor/lib/libloc_stub.so|65586ae8be95a3025399cf421fa1c5afb57dd13e
++vendor/lib/liblocation_api.so|3035ef61a6ff103b3cfc141693ccdc5a2936f836
++vendor/lib/liblocationservice.so|c9d204a92b9ac94976bfcf876f7b07d00860d94f
++vendor/lib/liblocationservice_glue.so|44213ebb0ab0596d5037d05475d546c32bc8a93e
++vendor/lib/liblowi_client.so|e4449adacbfc08b7dbbeddae6a9902cec92dc14f
++vendor/lib/liblowi_wifihal.so|eb92ec0885bd38e2cb3280b3bf2527875a7ca2b1
++vendor/lib/libulp2.so|8158c80d48d574d5919bea3a43b582bc1f3d8070
++vendor/lib/libxtadapter.so|23324e0491ccdecc2ca487009623fdcbc18c6303
++vendor/lib/libxtwifi_ulp_adaptor.so|ebe064bc0a45fe36ba39ae3dae673956635acd82
++vendor/lib/vendor.qti.gnss@1.0_vendor.so|57d2efe16b74585b850b5f18db30d2086c29f27f
++vendor/lib/vendor.samsung.hardware.gnss@1.0.so|2b8d914da2c6937fbdc5e1742b8b4384f4f4174
++
+ # Graphics from suzu OPR1.170623.026
+ vendor/lib/egl/eglSubDriverAndroid.so|5753e23ca7eca3e08b0743753809142ef36f4cad
+ vendor/lib/egl/libEGL_adreno.so|22e81c1aacd3b56c6e69f8281db3393d43b9a0a4
+diff --git a/rootdir/etc/init.qcom.rc b/rootdir/etc/init.qcom.rc
+index 29546e8..d3d50d3 100644
+--- a/rootdir/etc/init.qcom.rc
++++ b/rootdir/etc/init.qcom.rc
+@@ -144,6 +144,10 @@ on post-fs-data
+     mkdir /data/misc/location/gpsone_d 0770 system gps
+     mkdir /data/misc/location/quipc 0770 gps system
+     mkdir /data/misc/location/gsiff 0770 gps gps
++    mkdir /data/vendor/location 0770 gps gps
++    mkdir /data/vendor/location/mq 0770 gps gps
++    mkdir /data/vendor/location/xtwifi 0770 gps gps
++    mkdir /data/system/gps 0770 gps system
+ 
+     #Create directory from IMS services
+     mkdir /data/shared 0755
+@@ -514,10 +518,10 @@ service wpa_supplicant /vendor/bin/hw/wpa_supplicant \
+     disabled
+     oneshot
+ 
+-service loc_launcher /system/bin/loc_launcher
++service loc_launcher /vendor/bin/loc_launcher
+     #loc_launcher will start as root and set its uid to gps
+     class late_start
+     group gps inet net_raw oem_2950 net_admin wifi
+ 
+ service qcom-sh /vendor/bin/init.qcom.sh
+     class late_start
+diff --git a/sepolicy/file.te b/sepolicy/file.te
+index dfc5070..67a559d 100644
+--- a/sepolicy/file.te
++++ b/sepolicy/file.te
+@@ -1,6 +1,7 @@
+ type app_efs_file, file_type;
+ type biometrics_data_file, file_type, data_file_type;
+ type wifi_efs_file, file_type;
++type gps_data_file, file_type, data_file_type;
+ type sysfs_camera, fs_type, sysfs_type;
+ type sysfs_mdnie, fs_type, sysfs_type;
+ type sysfs_sec_key, fs_type, sysfs_type;
+diff --git a/sepolicy/file_contexts b/sepolicy/file_contexts
+index 0d42c87..9dbd684 100644
+--- a/sepolicy/file_contexts
++++ b/sepolicy/file_contexts
+@@ -29,6 +29,10 @@
+ # Graphics
+ /sys/devices/virtual/lcd/panel(/.*)?                            u:object_r:sysfs_graphics:s0
+ 
++# GNSS
++/(vendor|system/vendor)/bin/hw/vendor\.samsung\.hardware\.gnss@1\.0-service u:object_r:hal_gnss_default_exec:s0
++/data/system/gps(/.*)?                                         u:object_r:gps_data_file:s0
++
+ # Lights
+ /sys/devices/virtual/sec/sec_touchkey/brightness                u:object_r:sysfs_leds:s0
+ /sys/devices/virtual/sec/led(/.*)?                              u:object_r:sysfs_leds:s0
++diff --git a/libshims/gnss_hidl/gnss_hidl.cpp b/libshims/gnss_hidl/gnss_hidl.cpp
+new file mode 100644
+index 0000000..2fc2a13
+--- /dev/null
++++ b/libshims/gnss_hidl/gnss_hidl.cpp
+@@ -0,0 +1,100 @@
++/*
++ * Copyright (C) 2026 The LineageOS Project
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++#include <cstdint>
++#include <cstdio>
++#include <string>
++
++namespace {
++
++std::string hexValue(uint32_t value) {
++    char text[11];
++    std::snprintf(text, sizeof(text), "0x%x", value);
++    return text;
++}
++
++void appendFlag(std::string* output, const char* name) {
++    if (!output->empty()) {
++        output->append(" | ");
++    }
++    output->append(name);
++}
++
++}  // namespace
++
++std::string gnssNiEncodingToString(int32_t value)
++        __asm__("_ZN7android8hardware4gnss4V1_08toStringENS2_15IGnssNiCallback18GnssNiEncodingTypeE");
++
++std::string gnssNiEncodingToString(int32_t value) {
++    switch (value) {
++        case 0:
++            return "ENC_NONE";
++        case 1:
++            return "ENC_SUPL_GSM_DEFAULT";
++        case 2:
++            return "ENC_SUPL_UTF8";
++        case 3:
++            return "ENC_SUPL_UCS2";
++        case -1:
++            return "ENC_UNKNOWN";
++        default:
++            return hexValue(static_cast<uint32_t>(value));
++    }
++}
++
++std::string gnssUserResponseToString(uint8_t value)
++        __asm__("_ZN7android8hardware4gnss4V1_08toStringENS2_15IGnssNiCallback20GnssUserResponseTypeE");
++
++std::string gnssUserResponseToString(uint8_t value) {
++    switch (value) {
++        case 1:
++            return "RESPONSE_ACCEPT";
++        case 2:
++            return "RESPONSE_DENY";
++        case 3:
++            return "RESPONSE_NORESP";
++        default:
++            return hexValue(value);
++    }
++}
++
++std::string gnssNotifyFlagsToString(uint32_t value)
++        __asm__("_ZN7android8hardware4gnss4V1_08toStringINS2_15IGnssNiCallback17GnssNiNotifyFlagsEEENSt3__112basic_stringIcNS6_11char_traitsIcEENS6_9allocatorIcEEEEj");
++
++std::string gnssNotifyFlagsToString(uint32_t value) {
++    std::string output;
++    uint32_t described = 0;
++    if ((value & 1U) != 0U) {
++        appendFlag(&output, "NEED_NOTIFY");
++        described |= 1U;
++    }
++    if ((value & 2U) != 0U) {
++        appendFlag(&output, "NEED_VERIFY");
++        described |= 2U;
++    }
++    if ((value & 4U) != 0U) {
++        appendFlag(&output, "PRIVACY_OVERRIDE");
++        described |= 4U;
++    }
++    if (value != described) {
++        const std::string unknown = hexValue(value & ~described);
++        appendFlag(&output, unknown.c_str());
++    }
++    output.append(" (");
++    output.append(hexValue(value));
++    output.push_back(')');
++    return output;
++}
+diff --git a/rootdir/etc/vendor.samsung.hardware.gnss@1.0-service.rc b/rootdir/etc/vendor.samsung.hardware.gnss@1.0-service.rc
+new file mode 100644
+index 0000000..a990acd
+--- /dev/null
++++ b/rootdir/etc/vendor.samsung.hardware.gnss@1.0-service.rc
+@@ -0,0 +1,4 @@
++service sec_gnss_service /vendor/bin/hw/vendor.samsung.hardware.gnss@1.0-service
++    class main
++    user system
++    group system gps
+diff --git a/sepolicy/hal_gnss_default.te b/sepolicy/hal_gnss_default.te
+new file mode 100644
+index 0000000..715c8aa
+--- /dev/null
++++ b/sepolicy/hal_gnss_default.te
+@@ -0,0 +1,3 @@
++allow hal_gnss_default gps_data_file:dir create_dir_perms;
++allow hal_gnss_default gps_data_file:file create_file_perms;
++allow hal_gnss_default location_data_file:dir r_dir_perms;
+diff --git a/sepolicy/hwservice_contexts b/sepolicy/hwservice_contexts
+new file mode 100644
+index 0000000..5789bf3
+--- /dev/null
++++ b/sepolicy/hwservice_contexts
+@@ -0,0 +1 @@
++vendor.samsung.hardware.gnss::ISecGnss u:object_r:hal_gnss_hwservice:s0

@@ -26,13 +26,16 @@ packages=(
   abootimg
   bc
   binwalk
+  binutils
   bison
   build-essential
   ccache
   cpio
   curl
   device-tree-compiler
+  e2fsprogs
   fastboot
+  file
   flex
   g++-multilib
   gcc-multilib

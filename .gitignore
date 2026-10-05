@@ -4,6 +4,8 @@
 .repo/
 out/
 ccache/
+__pycache__/
+*.pyc
 
 # Local inputs and generated artifacts
 artifacts/

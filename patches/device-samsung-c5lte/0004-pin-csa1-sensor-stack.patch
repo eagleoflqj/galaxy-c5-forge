@@ -1,0 +1,20 @@
+diff --git a/proprietary-files.txt b/proprietary-files.txt
+--- a/proprietary-files.txt
++++ b/proprietary-files.txt
+@@ -367,7 +367,7 @@ etc/firmware/ois_SE_BU24219.bin
+ etc/firmware/ois_SP_BU24219.bin
+ etc/firmware/ois_VE_BU24219.bin
+ vendor/firmware/libpn548ad_fw.so
+-vendor/firmware/ram_patch.fw
++vendor/firmware/ram_patch.fw|56524a279cbfa9fe1d21b88d55f3dd2beac84d2d
+ 
+ # Gatekeeper
+ vendor/lib64/hw/gatekeeper.msm8952.so
+@@ -570,6 +570,6 @@ vendor/lib/libperipheral_client.so
+ 
+ # Sensors
+-lib/hw/sensors.msm8952.so:vendor/lib/sensors.c5lte.so
++vendor/lib/hw/sensors.msm8952.so:vendor/lib/sensors.c5lte.so|f54326abc0c5d3b0f0aed67a05677ec2946572e9
+ vendor/lib/libsensor1.so
+ vendor/lib/sensor_calibrate.so
+ vendor/lib/libyasalgo.so

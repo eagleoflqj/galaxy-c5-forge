@@ -114,6 +114,8 @@ repo sync \
 echo "Fetching arm64 WebView Git LFS object"
 repo forall external/chromium-webview/prebuilt/arm64 -c 'git lfs pull'
 
+"${project_dir}/scripts/apply-patches.sh" --workdir "$workdir"
+
 repo manifest -r -o "${project_dir}/manifests/locked/lineage-16.0.xml"
 
 echo "Source sync complete: $workdir"

@@ -45,6 +45,9 @@ for spec in \
   'rsync:rsync' \
   'zip:zip' \
   'unzip:unzip' \
+  'debugfs:ext4 image reader' \
+  'file:file type inspector' \
+  'readelf:ELF metadata inspector' \
   'lz4:LZ4' \
   'simg2img:Android sparse image reader' \
   'img2simg:Android sparse image writer' \
@@ -66,7 +69,7 @@ if command -v docker >/dev/null 2>&1; then
       pass "LineageOS 16 container image exists: ${image_id}"
       if docker run --rm "$container_image" bash -lc '
         set -e
-        command -v repo ccache flex bison gperf simg2img img2simg mkbootimg adb >/dev/null
+        command -v repo ccache flex bison gperf file readelf simg2img img2simg mkbootimg adb >/dev/null
         python -c "import sys; assert sys.version_info[0] == 2"
         python3 -c "import sys; assert sys.version_info[0] == 3"
         ldconfig -p | grep -q "libncurses.so.5"
