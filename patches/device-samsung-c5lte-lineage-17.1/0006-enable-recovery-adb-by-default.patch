@@ -1,0 +1,13 @@
+diff --git a/rootdir/etc/init.recovery.qcom.rc b/rootdir/etc/init.recovery.qcom.rc
+--- a/rootdir/etc/init.recovery.qcom.rc
++++ b/rootdir/etc/init.recovery.qcom.rc
+@@ -1,6 +1,9 @@
+ import /init.recovery.qcom.power.rc
+ 
+ on early-init
++    # Recovery is a bring-up environment; expose root ADB without requiring /data-hosted authorization keys.
++    setprop ro.adb.secure.recovery 0
++
+     # Android 10 adbd defaults to nonblocking FunctionFS AIO, which this 3.10 kernel does not support.
+     setprop ro.adb.nonblocking_ffs 0
+     setprop sys.usb.ffs.aio_compat 1

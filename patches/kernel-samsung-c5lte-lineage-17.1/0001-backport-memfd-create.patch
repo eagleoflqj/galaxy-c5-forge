@@ -1,0 +1,218 @@
+From 8c1cb9a92bd306914277343b2b4be3881a505a47 Mon Sep 17 00:00:00 2001
+From: Galaxy C5 Forge <forge@localhost>
+Date: Mon, 5 Oct 2026 16:20:00 -0400
+Subject: [PATCH] kernel: backport memfd_create for Android 10 ART
+
+Android 10 ART requires memfd_create to replace the inherited zygote JIT
+mapping in system_server without RWX memory. The 3.10 kernel currently
+returns ENOSYS, after which ART continues with stale allocator state and
+system_server repeatedly faults in JitCodeCache::CommitCodeInternal.
+
+Backport the minimal implementation and arm64/compat syscall wiring used
+by the MSM8952 LineageOS 17.1 kernel at these source revisions:
+
+- 9fdadeb84ca26cd9dd02c90e0a05c92ecab5e31d
+- 3ab89c5a5b63897ff69e4ff3fb60aa26ffacae62
+- 9f66eb8abe1679988010d9519f6d0acee4c780cd
+- 2a66b8ee8ffe82ae944e768b0487a7cec7d4d1e5
+
+The native arm64 syscall number 279 and compat ARM number 385 match the
+Android 10 UAPI. This implementation is sufficient for ART's flags=0
+call. It retains the source backport's MFD_ALLOW_SEALING flag acceptance,
+but does not add the separate sealing API; Android 10 keeps the libcutils
+memfd-backed ashmem path disabled by default.
+---
+ arch/arm/include/uapi/asm/unistd.h   |  1 +
+ arch/arm/kernel/calls.S              |  1 +
+ arch/arm64/include/asm/unistd.h      |  2 +-
+ arch/arm64/include/asm/unistd32.h    |  3 +-
+ include/linux/syscalls.h             |  1 +
+ include/uapi/asm-generic/unistd.h    |  4 +-
+ include/uapi/linux/memfd.h           |  9 +++++
+ kernel/sys_ni.c                      |  1 +
+ mm/shmem.c                           | 70 ++++++++++++++++++++++++++++++++++++
+ 9 files changed, 89 insertions(+), 3 deletions(-)
+ create mode 100644 include/uapi/linux/memfd.h
+
+diff --git a/arch/arm/include/uapi/asm/unistd.h b/arch/arm/include/uapi/asm/unistd.h
+--- a/arch/arm/include/uapi/asm/unistd.h
++++ b/arch/arm/include/uapi/asm/unistd.h
+@@ -410,6 +410,7 @@
+ #define __NR_renameat2			(__NR_SYSCALL_BASE+382)
+ #define __NR_seccomp			(__NR_SYSCALL_BASE+383)
+ #define __NR_getrandom			(__NR_SYSCALL_BASE+384)
++#define __NR_memfd_create		(__NR_SYSCALL_BASE+385)
+ 
+ /*
+  * The following SWIs are ARM private.
+diff --git a/arch/arm/kernel/calls.S b/arch/arm/kernel/calls.S
+--- a/arch/arm/kernel/calls.S
++++ b/arch/arm/kernel/calls.S
+@@ -392,6 +392,7 @@
+ 		CALL(sys_renameat2)
+ 		CALL(sys_seccomp)
+ 		CALL(sys_getrandom)
++/* 385 */	CALL(sys_memfd_create)
+ #ifndef syscalls_counted
+ .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
+ #define syscalls_counted
+diff --git a/arch/arm64/include/asm/unistd.h b/arch/arm64/include/asm/unistd.h
+--- a/arch/arm64/include/asm/unistd.h
++++ b/arch/arm64/include/asm/unistd.h
+@@ -44,7 +44,7 @@
+ #define __ARM_NR_compat_cacheflush	(__ARM_NR_COMPAT_BASE+2)
+ #define __ARM_NR_compat_set_tls		(__ARM_NR_COMPAT_BASE+5)
+ 
+-#define __NR_compat_syscalls		385
++#define __NR_compat_syscalls		386
+ #endif
+ 
+ #define __ARCH_WANT_SYS_CLONE
+diff --git a/arch/arm64/include/asm/unistd32.h b/arch/arm64/include/asm/unistd32.h
+--- a/arch/arm64/include/asm/unistd32.h
++++ b/arch/arm64/include/asm/unistd32.h
+@@ -791,3 +791,5 @@ __SYSCALL(382, sys_ni_syscall)
+ __SYSCALL(__NR_seccomp, sys_seccomp)
+ #define __NR_getrandom 384
+ __SYSCALL(__NR_getrandom, sys_getrandom)
++#define __NR_memfd_create 385
++__SYSCALL(__NR_memfd_create, sys_memfd_create)
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -806,6 +806,7 @@ asmlinkage long sys_timerfd_settime(int ufd, int flags,
+ asmlinkage long sys_timerfd_gettime(int ufd, struct itimerspec __user *otmr);
+ asmlinkage long sys_eventfd(unsigned int count);
+ asmlinkage long sys_eventfd2(unsigned int count, int flags);
++asmlinkage long sys_memfd_create(const char __user *uname_ptr, unsigned int flags);
+ asmlinkage long sys_fallocate(int fd, int mode, loff_t offset, loff_t len);
+ asmlinkage long sys_old_readdir(unsigned int, struct old_linux_dirent __user *, unsigned int);
+ asmlinkage long sys_pselect6(int, fd_set __user *, fd_set __user *,
+diff --git a/include/uapi/asm-generic/unistd.h b/include/uapi/asm-generic/unistd.h
+--- a/include/uapi/asm-generic/unistd.h
++++ b/include/uapi/asm-generic/unistd.h
+@@ -705,9 +705,11 @@ __SYSCALL(__NR_renameat2, sys_renameat2)
+ __SYSCALL(__NR_seccomp, sys_seccomp)
+ #define __NR_getrandom 278
+ __SYSCALL(__NR_getrandom, sys_getrandom)
++#define __NR_memfd_create 279
++__SYSCALL(__NR_memfd_create, sys_memfd_create)
+ 
+ #undef __NR_syscalls
+-#define __NR_syscalls 279
++#define __NR_syscalls 280
+ 
+ /*
+  * All syscalls below here should go away really,
+diff --git a/include/uapi/linux/memfd.h b/include/uapi/linux/memfd.h
+new file mode 100644
+--- /dev/null
++++ b/include/uapi/linux/memfd.h
+@@ -0,0 +1,8 @@
++#ifndef _UAPI_LINUX_MEMFD_H
++#define _UAPI_LINUX_MEMFD_H
++
++/* flags for memfd_create(2) (unsigned int) */
++#define MFD_CLOEXEC		0x0001U
++#define MFD_ALLOW_SEALING	0x0002U
++
++#endif /* _UAPI_LINUX_MEMFD_H */
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -193,6 +193,7 @@ cond_syscall(compat_sys_timerfd_settime);
+ cond_syscall(compat_sys_timerfd_gettime);
+ cond_syscall(sys_eventfd);
+ cond_syscall(sys_eventfd2);
++cond_syscall(sys_memfd_create);
+ 
+ /* performance counters: */
+ cond_syscall(sys_perf_event_open);
+diff --git a/mm/shmem.c b/mm/shmem.c
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -32,6 +32,8 @@
+ #include <linux/export.h>
+ #include <linux/swap.h>
+ #include <linux/aio.h>
++#include <linux/syscalls.h>
++#include <uapi/linux/memfd.h>
+ 
+ static struct vfsmount *shm_mnt;
+ 
+@@ -2672,6 +2674,73 @@ static int shmem_show_options(struct seq_file *seq, struct dentry *root)
+ 	shmem_show_mpol(seq, sbinfo->mpol);
+ 	return 0;
+ }
++
++#define MFD_NAME_PREFIX "memfd:"
++#define MFD_NAME_PREFIX_LEN (sizeof(MFD_NAME_PREFIX) - 1)
++#define MFD_NAME_MAX_LEN (NAME_MAX - MFD_NAME_PREFIX_LEN)
++
++#define MFD_ALL_FLAGS (MFD_CLOEXEC | MFD_ALLOW_SEALING)
++
++SYSCALL_DEFINE2(memfd_create,
++		const char __user *, uname,
++		unsigned int, flags)
++{
++	struct file *file;
++	int fd, error;
++	char *name;
++	long len;
++
++	if (flags & ~(unsigned int)MFD_ALL_FLAGS)
++		return -EINVAL;
++
++	/* length includes terminating zero */
++	len = strnlen_user(uname, MFD_NAME_MAX_LEN + 1);
++	if (len <= 0)
++		return -EFAULT;
++	if (len > MFD_NAME_MAX_LEN + 1)
++		return -EINVAL;
++
++	name = kmalloc(len + MFD_NAME_PREFIX_LEN, GFP_TEMPORARY);
++	if (!name)
++		return -ENOMEM;
++
++	strcpy(name, MFD_NAME_PREFIX);
++	if (copy_from_user(&name[MFD_NAME_PREFIX_LEN], uname, len)) {
++		error = -EFAULT;
++		goto err_name;
++	}
++
++	/* terminating-zero may have changed after strnlen_user() returned */
++	if (name[len + MFD_NAME_PREFIX_LEN - 1]) {
++		error = -EFAULT;
++		goto err_name;
++	}
++
++	fd = get_unused_fd_flags((flags & MFD_CLOEXEC) ? O_CLOEXEC : 0);
++	if (fd < 0) {
++		error = fd;
++		goto err_name;
++	}
++
++	file = shmem_file_setup(name, 0, VM_NORESERVE);
++	if (IS_ERR(file)) {
++		error = PTR_ERR(file);
++		goto err_fd;
++	}
++	file->f_mode |= FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE;
++	file->f_flags |= O_RDWR | O_LARGEFILE;
++
++	fd_install(fd, file);
++	kfree(name);
++	return fd;
++
++err_fd:
++	put_unused_fd(fd);
++err_name:
++	kfree(name);
++	return error;
++}
++
+ #endif /* CONFIG_TMPFS */
+ 
+ static void shmem_put_super(struct super_block *sb)
+-- 
+2.34.1

@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Galaxy C5 Forge <forge@localhost>
+Date: Mon, 5 Oct 2026 15:55:00 -0400
+Subject: [PATCH] c5lte: use the Android 10 QTI power HAL
+
+The LineageOS 17.1 QTI power project exposes only the 1.2 service module.
+Keeping the former 1.1 module name silently leaves the built image without a
+power HAL service, which blocks system_server in PowerManagerService.nativeInit.
+
+---
+ manifest.xml         | 2 +-
+ power/Android.mk     | 2 +-
+ product/qcom-perf.mk | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/manifest.xml b/manifest.xml
+index 7bfbb8d..72a318a 100644
+--- a/manifest.xml
++++ b/manifest.xml
+@@ -163,7 +163,7 @@
+     <hal format="hidl">
+         <name>android.hardware.power</name>
+         <transport>hwbinder</transport>
+-        <version>1.1</version>
++        <version>1.2</version>
+         <interface>
+             <name>IPower</name>
+             <instance>default</instance>
+diff --git a/power/Android.mk b/power/Android.mk
+index 76556b7..bb45032 100644
+--- a/power/Android.mk
++++ b/power/Android.mk
+@@ -2,7 +2,7 @@ LOCAL_PATH := $(call my-dir)
+ 
+ include $(CLEAR_VARS)
+ 
+-LOCAL_C_INCLUDES := hardware/qcom/power
++LOCAL_C_INCLUDES := vendor/qcom/opensource/power
+ LOCAL_CFLAGS := -Wall -Werror
+ LOCAL_SHARED_LIBRARIES := liblog
+ LOCAL_HEADER_LIBRARIES += libhardware_headers
+diff --git a/product/qcom-perf.mk b/product/qcom-perf.mk
+index 6b5bb70..8ecac95 100644
+--- a/product/qcom-perf.mk
++++ b/product/qcom-perf.mk
+@@ -1,6 +1,6 @@
+ # Power HAL
+ PRODUCT_PACKAGES += \
+-    android.hardware.power@1.1-service-qti
++    android.hardware.power@1.2-service-qti
+ 
+ # IRQ balance
+ PRODUCT_COPY_FILES += \
+-- 
+2.42.0

@@ -1,0 +1,11 @@
+diff --git a/product/media.mk b/product/media.mk
+--- a/product/media.mk
++++ b/product/media.mk
+@@ -8,6 +8,7 @@ PRODUCT_COPY_FILES += \
+ 
+ # Properties
+ PRODUCT_PROPERTY_OVERRIDES += \
++    debug.stagefright.ccodec=0 \
+     media.aac_51_output_enabled=true
+ 
+ PRODUCT_COPY_FILES += \

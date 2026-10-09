@@ -64,23 +64,28 @@ echo
 if command -v docker >/dev/null 2>&1; then
   if docker info >/dev/null 2>&1; then
     pass "Docker daemon is accessible"
-    container_image='galaxy-c5-forge/lineage-16:ubuntu-20.04'
-    if image_id=$(docker image inspect --format '{{.Id}}' "$container_image" 2>/dev/null); then
-      pass "LineageOS 16 container image exists: ${image_id}"
-      if docker run --rm "$container_image" bash -lc '
-        set -e
-        command -v repo ccache flex bison gperf file readelf simg2img img2simg mkbootimg adb >/dev/null
-        python -c "import sys; assert sys.version_info[0] == 2"
-        python3 -c "import sys; assert sys.version_info[0] == 3"
-        ldconfig -p | grep -q "libncurses.so.5"
-      ' >/dev/null 2>&1; then
-        pass "LineageOS 16 container smoke test"
+    for spec in \
+      'LineageOS 16:galaxy-c5-forge/lineage-16:ubuntu-20.04' \
+      'LineageOS 17.1:galaxy-c5-forge/lineage-17.1:ubuntu-20.04'; do
+      container_label=${spec%%:*}
+      container_image=${spec#*:}
+      if image_id=$(docker image inspect --format '{{.Id}}' "$container_image" 2>/dev/null); then
+        pass "$container_label container image exists: ${image_id}"
+        if docker run --rm "$container_image" bash -lc '
+          set -e
+          command -v repo ccache flex bison gperf file readelf simg2img img2simg mkbootimg adb >/dev/null
+          python -c "import sys; assert sys.version_info[0] == 2"
+          python3 -c "import sys; assert sys.version_info[0] == 3"
+          ldconfig -p | grep -q "libncurses.so.5"
+        ' >/dev/null 2>&1; then
+          pass "$container_label container smoke test"
+        else
+          fail "$container_label container smoke test failed"
+        fi
       else
-        fail "LineageOS 16 container smoke test failed"
+        fail "$container_label container image is missing: $container_image"
       fi
-    else
-      fail "LineageOS 16 container image is missing: $container_image"
-    fi
+    done
   else
     fail "Docker is installed but the daemon/socket is not accessible"
   fi

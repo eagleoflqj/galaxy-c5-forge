@@ -1,0 +1,10 @@
+diff --git a/rootdir/etc/init.recovery.qcom.rc b/rootdir/etc/init.recovery.qcom.rc
+--- a/rootdir/etc/init.recovery.qcom.rc
++++ b/rootdir/etc/init.recovery.qcom.rc
+@@ -4,4 +4,5 @@ on early-init
+-    # Android 28 adbd uses FunctionFS AIO by default, which this 3.10 kernel does not support.
++    # Android 10 adbd defaults to nonblocking FunctionFS AIO, which this 3.10 kernel does not support.
++    setprop ro.adb.nonblocking_ffs 0
+     setprop sys.usb.ffs.aio_compat 1
+ 
+ on fs

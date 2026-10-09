@@ -2,22 +2,21 @@
 set -euo pipefail
 
 readonly manifest_url='https://github.com/LineageOS/android.git'
-readonly manifest_commit='e56f933c20b428410d1c53f41e6c0986880cb362'
 project_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 readonly project_dir
-readonly local_manifest_source="${project_dir}/manifests/local/c5lte-lineage-16.xml"
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/setup.sh --workdir /absolute/android-work [--jobs N] [--no-sync]
+Usage: ./scripts/setup.sh --workdir /absolute/android-work [--lineage-version 16.0|17.1] [--jobs N] [--no-sync]
 
-Initializes the pinned LineageOS 16 manifest and installs the fixed c5lte local
-manifest. By default it synchronizes sources and writes a resolved manifest to
-manifests/locked/lineage-16.0.xml.
+Initializes the selected pinned LineageOS manifest and installs its fixed c5lte
+local manifest. By default it synchronizes sources and writes a resolved
+manifest under manifests/locked/.
 EOF
 }
 
 workdir=
+lineage_version=16.0
 # Android's many independent fetches can trigger googlesource per-client quota
 # limits at CPU-count concurrency. Keep the reliable default conservative;
 # callers can still opt into a higher value.
@@ -28,6 +27,10 @@ while (( $# > 0 )); do
   case "$1" in
     --workdir)
       workdir=${2:-}
+      shift 2
+      ;;
+    --lineage-version)
+      lineage_version=${2:-}
       shift 2
       ;;
     --jobs)
@@ -54,6 +57,25 @@ if [[ -z "$workdir" || "$workdir" != /* ]]; then
   echo "--workdir must be an absolute path" >&2
   exit 2
 fi
+case "$lineage_version" in
+  16.0)
+    manifest_commit='e56f933c20b428410d1c53f41e6c0986880cb362'
+    local_manifest_source="${project_dir}/manifests/local/c5lte-lineage-16.xml"
+    locked_manifest="${project_dir}/manifests/locked/lineage-16.0.xml"
+    log_version=16
+    ;;
+  17.1)
+    manifest_commit='c7b3d4b65b79e2e0d6a891547ad138e1fcdafb56'
+    local_manifest_source="${project_dir}/manifests/local/c5lte-lineage-17.1.xml"
+    locked_manifest="${project_dir}/manifests/locked/lineage-17.1.xml"
+    log_version=17.1
+    ;;
+  *)
+    echo "--lineage-version must be 16.0 or 17.1" >&2
+    exit 2
+    ;;
+esac
+readonly manifest_commit local_manifest_source locked_manifest log_version
 if [[ ! "$jobs" =~ ^[1-9][0-9]*$ ]]; then
   echo "--jobs must be a positive integer" >&2
   exit 2
@@ -96,7 +118,7 @@ if [[ "$do_sync" == false ]]; then
 fi
 
 mkdir -p "${project_dir}/logs" "${project_dir}/manifests/locked"
-log_file="${project_dir}/logs/repo-sync-lineage-16-$(date -u +%Y%m%dT%H%M%SZ).log"
+log_file="${project_dir}/logs/repo-sync-lineage-${log_version}-$(date -u +%Y%m%dT%H%M%SZ).log"
 echo "Writing sync log to $log_file"
 repo sync \
   --current-branch \
@@ -114,9 +136,9 @@ repo sync \
 echo "Fetching arm64 WebView Git LFS object"
 repo forall external/chromium-webview/prebuilt/arm64 -c 'git lfs pull'
 
-"${project_dir}/scripts/apply-patches.sh" --workdir "$workdir"
+"${project_dir}/scripts/apply-patches.sh" --workdir "$workdir" --lineage-version "$lineage_version"
 
-repo manifest -r -o "${project_dir}/manifests/locked/lineage-16.0.xml"
+repo manifest -r -o "$locked_manifest"
 
 echo "Source sync complete: $workdir"
-echo "Resolved manifest: ${project_dir}/manifests/locked/lineage-16.0.xml"
+echo "Resolved manifest: $locked_manifest"

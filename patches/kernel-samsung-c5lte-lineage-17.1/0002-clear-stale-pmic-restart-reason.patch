@@ -1,0 +1,44 @@
+From 05e2d8e94ab3991798b31fe5d2710844646f4011 Mon Sep 17 00:00:00 2001
+From: Galaxy C5 Forge <forge@localhost>
+Date: Mon, 5 Oct 2026 22:30:00 -0400
+Subject: [PATCH] power: clear stale PMIC restart reason
+
+Samsung's stock aboot treats PMIC restart reason 1 as an unconditional
+recovery request. Android 10 Rescue Party writes that value through the
+normal reboot-recovery path, but this platform can retain it across later
+recovery shutdowns and cold power-key starts.
+
+Clear the PMIC restart-reason field before configuring every shutdown or
+restart. Named recovery, bootloader and RTC restarts immediately replace
+the cleared value with their existing explicit reason. Normal and empty
+restart targets therefore reach aboot with reason UNKNOWN instead of an
+old recovery value.
+---
+ drivers/power/reset/msm-poweroff.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/drivers/power/reset/msm-poweroff.c b/drivers/power/reset/msm-poweroff.c
+--- a/drivers/power/reset/msm-poweroff.c
++++ b/drivers/power/reset/msm-poweroff.c
+@@ -252,6 +252,9 @@ static void msm_restart_prepare(const char *cmd)
+ 		qpnp_pon_system_pwr_off(PON_POWER_OFF_HARD_RESET);
+ 	}
+ 
++	/* Do not let an earlier recovery request survive a normal restart. */
++	qpnp_pon_set_restart_reason(PON_RESTART_REASON_UNKNOWN);
++
+ 	if (cmd != NULL) {
+ 		if (!strncmp(cmd, "bootloader", 10)) {
+ 			qpnp_pon_set_restart_reason(
+@@ -371,6 +375,9 @@ static void do_msm_poweroff(void)
+ #ifdef CONFIG_MSM_DLOAD_MODE
+ 	set_dload_mode(0);
+ #endif
++	/* Shutdown must not preserve a stale recovery request in the PMIC. */
++	qpnp_pon_set_restart_reason(PON_RESTART_REASON_UNKNOWN);
++
+ 	qpnp_pon_system_pwr_off(PON_POWER_OFF_SHUTDOWN);
+ 	/* Needed to bypass debug image on some chips */
+ 	if (!is_scm_armv8())
+-- 
+2.34.1

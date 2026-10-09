@@ -1,0 +1,14 @@
+diff --git a/rootdir/etc/init.qcom.rc b/rootdir/etc/init.qcom.rc
+--- a/rootdir/etc/init.qcom.rc
++++ b/rootdir/etc/init.qcom.rc
+@@ -620,7 +620,10 @@ service per_proxy /vendor/bin/pm-proxy
+ 
+ on property:init.svc.per_mgr=running
+     start per_proxy
+ 
++on property:sys.boot_completed=1
++    restart per_proxy
++
+ service msm_irqbalance /vendor/bin/msm_irqbalance -f /vendor/etc/msm_irqbalance.conf
+     class core
+     user root

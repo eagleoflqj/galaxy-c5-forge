@@ -145,11 +145,11 @@ done
 
 "$device_dir/setup-makefiles.sh"
 
-if ! grep -Fq 'proprietary/vendor/firmware/ram_patch.fw:system/vendor/firmware/ram_patch.fw' "$vendor_dir/c5lte-vendor.mk"; then
+if ! grep -Eq 'proprietary/vendor/firmware/ram_patch\.fw:(system/vendor|\$\(TARGET_COPY_OUT_VENDOR\))/firmware/ram_patch\.fw' "$vendor_dir/c5lte-vendor.mk"; then
   echo "Generated vendor makefile lacks the sensor firmware mapping" >&2
   exit 1
 fi
-if ! grep -Fq 'proprietary/vendor/lib/sensors.c5lte.so:system/vendor/lib/sensors.c5lte.so' "$vendor_dir/c5lte-vendor.mk"; then
+if ! grep -Eq 'proprietary/vendor/lib/sensors\.c5lte\.so:(system/vendor|\$\(TARGET_COPY_OUT_VENDOR\))/lib/sensors\.c5lte\.so' "$vendor_dir/c5lte-vendor.mk"; then
   echo "Generated vendor makefile lacks the sensor HAL mapping" >&2
   exit 1
 fi

@@ -1,0 +1,16 @@
+diff --git a/rootdir/etc/init.qcom.usb.rc b/rootdir/etc/init.qcom.usb.rc
+--- a/rootdir/etc/init.qcom.usb.rc
++++ b/rootdir/etc/init.qcom.usb.rc
+@@ -23,6 +23,10 @@
+ # WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ # OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ # ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #
+ 
++on early-init
++    # Android 10 adbd's nonblocking FunctionFS path does not reconnect reliably on this Linux 3.10 gadget.
++    setprop ro.adb.nonblocking_ffs 0
++
+ on init
+     write /sys/class/android_usb/android0/f_rndis/wceis 1
+ 

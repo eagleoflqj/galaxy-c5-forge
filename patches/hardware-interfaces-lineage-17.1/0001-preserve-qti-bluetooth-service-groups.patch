@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Galaxy C5 Forge <forge@localhost>
+Date: Tue, 6 Oct 2026 01:00:00 -0400
+Subject: [PATCH] bluetooth: preserve QTI service supplemental groups
+
+The c5lte Android 10 service loads the proprietary QTI implementation. Keep
+the supplemental groups used by that implementation's original service for
+wake-lock and QMI/diagnostic access while retaining Android 10's executable,
+capabilities and scheduling setup.
+
+---
+ bluetooth/1.0/default/android.hardware.bluetooth@1.0-service.rc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/bluetooth/1.0/default/android.hardware.bluetooth@1.0-service.rc b/bluetooth/1.0/default/android.hardware.bluetooth@1.0-service.rc
+index 97a080e..377bf3c 100644
+--- a/bluetooth/1.0/default/android.hardware.bluetooth@1.0-service.rc
++++ b/bluetooth/1.0/default/android.hardware.bluetooth@1.0-service.rc
+@@ -2,5 +2,5 @@ service vendor.bluetooth-1-0 /vendor/bin/hw/android.hardware.bluetooth@1.0-servi
+     class hal
+     capabilities BLOCK_SUSPEND NET_ADMIN SYS_NICE
+     user bluetooth
+-    group bluetooth
++    group bluetooth system wakelock oem_2901
+     writepid /dev/stune/foreground/tasks
+-- 
+2.42.0

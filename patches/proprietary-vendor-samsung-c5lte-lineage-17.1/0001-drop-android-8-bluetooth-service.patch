@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Galaxy C5 Forge <forge@localhost>
+Date: Mon, 5 Oct 2026 19:05:00 -0400
+Subject: [PATCH] c5lte: stop packaging the Android 8 Bluetooth service
+
+Android 10 supplies the service executable and init definition. Keep the QTI
+passthrough implementation because it owns the Pronto-specific SMD and NVM
+initialization that the generic Android 10 implementation does not provide.
+
+---
+ c5lte-vendor.mk | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/c5lte-vendor.mk b/c5lte-vendor.mk
+index f2b7a1c..9fce20d 100644
+--- a/c5lte-vendor.mk
++++ b/c5lte-vendor.mk
+@@ -94,2 +94,1 @@ PRODUCT_COPY_FILES += \
+-    vendor/samsung/c5lte/proprietary/vendor/bin/hw/android.hardware.bluetooth@1.0-service-qti:system/vendor/bin/hw/android.hardware.bluetooth@1.0-service-qti \
+     vendor/samsung/c5lte/proprietary/vendor/bin/hw/vendor.qti.hardware.perf@1.0-service:system/vendor/bin/hw/vendor.qti.hardware.perf@1.0-service \
+@@ -100,2 +99,1 @@ PRODUCT_COPY_FILES += \
+-    vendor/samsung/c5lte/proprietary/vendor/etc/init/android.hardware.bluetooth@1.0-service-qti.rc:system/vendor/etc/init/android.hardware.bluetooth@1.0-service-qti.rc \
+     vendor/samsung/c5lte/proprietary/vendor/etc/init/vendor.qti.hardware.perf@1.0-service.rc:system/vendor/etc/init/vendor.qti.hardware.perf@1.0-service.rc \
+-- 
+2.42.0

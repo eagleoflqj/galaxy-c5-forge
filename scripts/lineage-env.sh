@@ -1,12 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly image_name='galaxy-c5-forge/lineage-16:ubuntu-20.04'
 project_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 readonly project_dir
-readonly dockerfile_dir="${project_dir}/containers/lineage-16"
 readonly host_uid=${SUDO_UID:-$(id -u)}
 readonly host_gid=${SUDO_GID:-$(id -g)}
+readonly lineage_version=${LINEAGE_VERSION:-16.0}
+
+case "$lineage_version" in
+  16.0)
+    readonly image_name='galaxy-c5-forge/lineage-16:ubuntu-20.04'
+    readonly dockerfile_dir="${project_dir}/containers/lineage-16"
+    ;;
+  17.1)
+    readonly image_name='galaxy-c5-forge/lineage-17.1:ubuntu-20.04'
+    readonly dockerfile_dir="${project_dir}/containers/lineage-17.1"
+    ;;
+  *)
+    echo "LINEAGE_VERSION must be 16.0 or 17.1" >&2
+    exit 2
+    ;;
+esac
 
 usage() {
   cat <<'EOF'
@@ -37,6 +51,8 @@ case "$command_name" in
   build-image)
     require_docker
     docker build \
+      --build-arg "BUILD_UID=${host_uid}" \
+      --build-arg "BUILD_GID=${host_gid}" \
       --tag "$image_name" \
       "$dockerfile_dir"
     ;;
@@ -72,6 +88,8 @@ case "$command_name" in
       --env USE_CCACHE=1 \
       --env CCACHE_EXEC=/usr/bin/ccache \
       --env CCACHE_DIR=/ccache \
+      --env BUILD_USERNAME=forge \
+      --env BUILD_HOSTNAME=galaxy-c5-forge \
       --volume "${project_dir}:/forge" \
       --volume "${project_dir}/.cache/ccache:/ccache" \
       --volume "${project_dir}/.cache/container-home:/tmp/home" \

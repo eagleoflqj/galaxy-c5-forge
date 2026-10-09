@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Galaxy C5 Forge <forge@localhost>
+Date: Mon, 5 Oct 2026 19:05:00 -0400
+Subject: [PATCH] c5lte: use the Android 10 Bluetooth service
+
+The Android 8 service executable is linked against the older platform HIDL
+and C++ runtime. Use Android 10's source-built service process, but retain the
+QTI passthrough implementation that performs the Pronto controller's SMD and
+NVM initialization. The generic Android 10 implementation plus libbt-vendor
+can open the SMD channels but does not perform that controller setup and later
+times out on HCI commands.
+
+---
+ product/qcom-bluetooth.mk | 1 +
+ proprietary-files.txt    | 2 --
+ 2 files changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/product/qcom-bluetooth.mk b/product/qcom-bluetooth.mk
+index 4feeac8..2d30e70 100644
+--- a/product/qcom-bluetooth.mk
++++ b/product/qcom-bluetooth.mk
+@@ -1,5 +1,6 @@
+ # Bluetooth
+ PRODUCT_PACKAGES += \
++    android.hardware.bluetooth@1.0-service \
+     libbt-vendor
+ 
+ # Permissions
+diff --git a/proprietary-files.txt b/proprietary-files.txt
+index 1d6046b..6b49c87 100644
+--- a/proprietary-files.txt
++++ b/proprietary-files.txt
+@@ -67,8 +67,6 @@ etc/Tfa9897.cnt
+ etc/audio_platform_info_extcodec.xml
+ 
+ # Bluetooth - from SRT Phone 8.0.0
+-vendor/bin/hw/android.hardware.bluetooth@1.0-service-qti|587ddf45b4d56bf9d0b02c351722336db73ff01f
+-vendor/etc/init/android.hardware.bluetooth@1.0-service-qti.rc|1a2dc1c2d217f47b9c99a0afa9e4912abd32e381
+ vendor/lib64/com.qualcomm.qti.bluetooth_audio@1.0_vendor.so|65741ce5d42b118146362929864fae6ff46d3531
+ vendor/lib64/hw/android.hardware.bluetooth@1.0-impl-qti.so|7b0558d59626a90e2d48b2626334dc39238c6505
+ vendor/lib64/libbt-hidlclient.so|15ccf847e926ec790e1f9bde3b211bc6c3e81b59
+-- 
+2.42.0

@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Galaxy C5 Forge <forge@localhost>
+Date: Tue, 6 Oct 2026 00:00:00 -0400
+Subject: [PATCH] libbase: restore the legacy LogMessage constructor
+
+The Android 8 QTI Bluetooth implementation still references the five-argument
+LogMessage constructor. Android 10 removed that compatibility symbol when it
+added the optional log tag argument, preventing the otherwise compatible
+vendor implementation from loading.
+
+Restore the former forwarding constructor without changing current callers or
+logging behavior.
+
+---
+ base/include/android-base/logging.h | 3 +++
+ base/logging.cpp                    | 4 ++++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/base/include/android-base/logging.h b/base/include/android-base/logging.h
+index f94cc25..a640be6 100644
+--- a/base/include/android-base/logging.h
++++ b/base/include/android-base/logging.h
+@@ -447,6 +447,9 @@ class LogMessage {
+  private:
+   const std::unique_ptr<LogMessageData> data_;
+ 
++  // Compatibility constructor retained for Android 8 vendor prebuilts.
++  LogMessage(const char* file, unsigned int line, LogId id, LogSeverity severity, int error);
++
+   DISALLOW_COPY_AND_ASSIGN(LogMessage);
+ };
+ 
+diff --git a/base/logging.cpp b/base/logging.cpp
+index f89168c..71b59b8 100644
+--- a/base/logging.cpp
++++ b/base/logging.cpp
+@@ -405,6 +405,10 @@ LogMessage::LogMessage(const char* file, unsigned int line, LogId id, LogSeverit
+                        const char* tag, int error)
+     : data_(new LogMessageData(file, line, id, severity, tag, error)) {}
+ 
++LogMessage::LogMessage(const char* file, unsigned int line, LogId id, LogSeverity severity,
++                       int error)
++    : LogMessage(file, line, id, severity, nullptr, error) {}
++
+ LogMessage::~LogMessage() {
+   // Check severity again. This is duplicate work wrt/ LOG macros, but not LOG_STREAM.
+   if (!WOULD_LOG(data_->GetSeverity())) {
+-- 
+2.42.0

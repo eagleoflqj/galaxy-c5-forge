@@ -1,0 +1,9 @@
+diff --git a/product/lights.mk b/product/lights.mk
+--- a/product/lights.mk
++++ b/product/lights.mk
+@@ -2,4 +2,4 @@
+ PRODUCT_PACKAGES += \
+     android.hardware.light@2.0-impl \
+     android.hardware.light@2.0-service \
+-    lights.MSM8952
++    lights.msm8952

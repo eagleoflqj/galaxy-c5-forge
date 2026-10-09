@@ -1,0 +1,30 @@
+From 7f1a7d8eb39fa0a82444b712ad76ffb09d89e6a1 Mon Sep 17 00:00:00 2001
+From: Galaxy C5 Forge <forge@localhost>
+Date: Mon, 5 Oct 2026 23:40:00 -0400
+Subject: [PATCH] arm: dts: c5lte: enable PMIC restart reason storage
+
+The PM8950 power-on node is the system-reset device, but its device-tree
+description does not enable qcom,store-hard-reset-reason. Consequently,
+qpnp_pon_set_restart_reason() returns without accessing the PMIC and the
+normal-restart clear added for c5lte is a no-op.
+
+Enable the existing QPNP driver feature for this device. Named restart
+targets retain their existing behavior, while recovery and normal restart
+can now replace or clear the three-bit PMIC reason consumed by stock aboot.
+---
+ .../dts/samsung/msm8952/msm8952-sec-c5lte-chn-hk-r09.dts     | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/arch/arm/boot/dts/samsung/msm8952/msm8952-sec-c5lte-chn-hk-r09.dts b/arch/arm/boot/dts/samsung/msm8952/msm8952-sec-c5lte-chn-hk-r09.dts
+--- a/arch/arm/boot/dts/samsung/msm8952/msm8952-sec-c5lte-chn-hk-r09.dts
++++ b/arch/arm/boot/dts/samsung/msm8952/msm8952-sec-c5lte-chn-hk-r09.dts
+@@ -8130,6 +8130,7 @@
+ 					interrupt-names = "kpdpwr", "resin", "resin-bark", "kpdpwr-resin-bark";
+ 					qcom,pon-dbc-delay = <0x3d09>;
+ 					qcom,system-reset;
++					qcom,store-hard-reset-reason;
+ 					qcom,s3-debounce = <0x80>;
+ 
+ 					qcom,pon_1 {
+-- 
+2.34.1

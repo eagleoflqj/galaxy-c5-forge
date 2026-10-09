@@ -1,0 +1,6 @@
+diff --git a/sepolicy/init.te b/sepolicy/init.te
+new file mode 100644
+--- /dev/null
++++ b/sepolicy/init.te
+@@ -0,0 +1 @@
++allow init efs_file:dir mounton;

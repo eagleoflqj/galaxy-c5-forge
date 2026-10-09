@@ -1,0 +1,93 @@
+From: Galaxy C5 Forge <forge@localhost>
+Subject: [PATCH] ipa: finish Q6 cleanup outside a fatally signalled task
+
+Baseline: 71b335bed497bbe8b9754c9c986801a66212ce4f
+
+Android 10 shutdown kills the PeripheralManager while it holds the last
+modem subsystem fd. Its exit path synchronously invokes the IPA notifier.
+CMA allocation can then fail because contiguous migration checks the
+caller's pending fatal signal. On c5lte the four-byte DMA allocation fails
+and the mandatory cleanup BUGs, causing a panic-driven restart.
+
+Queue the original complete cleanup on system_unbound_wq and flush the
+individual work item before returning to subsystem shutdown. Always use
+the worker so that a fatal signal arriving after notifier entry cannot
+race the dispatch. Use an on-stack work item with matching lifetime
+annotations; no cleanup request allocation is needed in the exiting task.
+The uninterruptible flush keeps all clocks, commands and DMA-buffer
+lifetimes inside the existing notifier ordering. Preserve every original
+cleanup step and fatal error check. No caller-owned mutex is released by
+the cleanup; its locks are acquired and released within the worker.
+
+The log confirms allocation failure and panic; it does not print CMA's
+numeric errno. The signal-interruption mechanism is source-supported and
+must still be confirmed by the shutdown hardware regression.
+
+diff --git a/drivers/platform/msm/ipa/ipa.c b/drivers/platform/msm/ipa/ipa.c
+index ac8fa733..77ca7534 100644
+--- a/drivers/platform/msm/ipa/ipa.c
++++ b/drivers/platform/msm/ipa/ipa.c
+@@ -25,6 +25,7 @@
+ #include <linux/platform_device.h>
+ #include <linux/rbtree.h>
+ #include <linux/uaccess.h>
++#include <linux/workqueue.h>
+ #include <linux/interrupt.h>
+ #include <linux/msm-bus.h>
+ #include <linux/msm-bus-board.h>
+@@ -1868,7 +1869,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
+ }
+ 
+ /**
+-* ipa_q6_pre_shutdown_cleanup() - A cleanup for all Q6 related configuration
++* ipa_q6_pre_shutdown_cleanup_impl() - Clean all Q6 related configuration
+ *                    in IPA HW before modem shutdown. This is performed in
+ *                    case of SSR.
+ *
+@@ -1877,7 +1878,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
+ * This is a mandatory procedure, in case one of the steps fails, the
+ * AP needs to restart.
+ */
+-int ipa_q6_pre_shutdown_cleanup(void)
++static int ipa_q6_pre_shutdown_cleanup_impl(void)
+ {
+ 	/* If uC has notified the APPS upon a ZIP engine error,
+ 	 * APPS need to assert (This is a non recoverable error).
+@@ -1916,6 +1917,32 @@ int ipa_q6_pre_shutdown_cleanup(void)
+ 	return 0;
+ }
+ 
++static void ipa_q6_pre_shutdown_cleanup_work(struct work_struct *work)
++{
++	ipa_q6_pre_shutdown_cleanup_impl();
++	pr_info("IPA Q6 cleanup in worker complete\n");
++}
++
++int ipa_q6_pre_shutdown_cleanup(void)
++{
++	struct work_struct work;
++
++	/*
++	 * Closing the last subsystem fd can run this notifier in a task killed
++	 * by init during shutdown. CMA migration aborts on a pending fatal
++	 * signal, even for the four-byte DMA buffer used to clear Q6 tables.
++	 * Always run the mandatory cleanup in a signal-free worker, including
++	 * when a fatal signal arrives after notifier entry.
++	 * Waiting is uninterruptible: the subsystem must not power down until
++	 * all IPA commands and their DMA buffers have completed.
++	 */
++	INIT_WORK_ONSTACK(&work, ipa_q6_pre_shutdown_cleanup_work);
++	queue_work(system_unbound_wq, &work);
++	flush_work(&work);
++	destroy_work_on_stack(&work);
++	return 0;
++}
++
+ /**
+ * ipa_q6_post_shutdown_cleanup() - A cleanup for the Q6 pipes
+ *                    in IPA HW after modem shutdown. This is performed
+@@ -4575,4 +4602,3 @@ subsys_initcall(ipa_module_init);
+ 
+ MODULE_LICENSE("GPL v2");
+ MODULE_DESCRIPTION("IPA HW device driver");
+-
