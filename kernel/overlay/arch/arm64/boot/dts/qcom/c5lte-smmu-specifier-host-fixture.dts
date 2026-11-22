@@ -1,0 +1,228 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* HOST-ONLY stream-specifier/legacy-domain fixture. NEVER a board DT.
+ * C5 baseline DTB: 83e02661e33cc35a25c6fee66abb0e2f492e2dc854b79a396a8eb90817869713.
+ * Providers deliberately do NOT match any native/legacy SMMU driver.
+ * forge,* properties are evidence metadata, not new runtime bindings.
+ * The fixed-bank consumer property is tested with nonruntime providers.
+ * No IRQ gaps, hardware bank count, CB ownership or handoff is guessed.
+ */
+/dts-v1/;
+
+/ {
+	compatible = "samsung,c5lte-smmu-specifier-host-fixture";
+	providers {
+		apps: apps {
+			#iommu-cells = <2>;
+			forge,baseline-controller = "/soc/qcom,iommu@1e00000";
+			forge,legacy-reg = <0x1e00000 0x40000>;
+			forge,legacy-interrupts = <0x0 0x29 0x0 0x0 0x26 0x0>;
+			forge,secure-id = <17>;
+		};
+		gpu: gpu {
+			#iommu-cells = <2>;
+			forge,baseline-controller = "/soc/qcom,iommu@1f00000";
+			forge,legacy-reg = <0x1f00000 0x10000>;
+			forge,legacy-interrupts = <0x0 0x2b 0x0 0x0 0x2a 0x0>;
+			forge,secure-id = <18>;
+		};
+	};
+	masters {
+		apps_cb2: apps-cb2 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e22000";
+			forge,legacy-context-bank = <2>;
+			qcom,fixed-context-bank = <2>;
+			forge,legacy-reg = <0x1e22000 0x1000>;
+			forge,legacy-interrupts = <0 53 0 0 53 0>;
+			iommus = <&apps 0x8c0 0x0>, <&apps 0x8c6 0x0>;
+			forge,secure-context;
+		};
+		apps_cb3: apps-cb3 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e23000";
+			forge,legacy-context-bank = <3>;
+			qcom,fixed-context-bank = <3>;
+			forge,legacy-reg = <0x1e23000 0x1000>;
+			forge,legacy-interrupts = <0 54 0 0 54 0>;
+			iommus = <&apps 0x880 0x3>, <&apps 0x884 0x0>, <&apps 0x888 0x2>;
+			forge,secure-context;
+		};
+		apps_cb4: apps-cb4 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e24000";
+			forge,legacy-context-bank = <4>;
+			qcom,fixed-context-bank = <4>;
+			forge,legacy-reg = <0x1e24000 0x1000>;
+			forge,legacy-interrupts = <0 58 0 0 58 0>;
+			iommus = <&apps 0x885 0x0>;
+			forge,secure-context;
+		};
+		apps_cb5: apps-cb5 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e25000";
+			forge,legacy-context-bank = <5>;
+			qcom,fixed-context-bank = <5>;
+			forge,legacy-reg = <0x1e25000 0x1000>;
+			forge,legacy-interrupts = <0 60 0 0 60 0>;
+			iommus = <&apps 0x887 0x0>, <&apps 0x889 0x2>, <&apps 0x8a0 0x0>;
+			forge,secure-context;
+		};
+		apps_cb6: apps-cb6 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e26000";
+			forge,legacy-context-bank = <6>;
+			qcom,fixed-context-bank = <6>;
+			forge,legacy-reg = <0x1e26000 0x1000>;
+			forge,legacy-interrupts = <0 61 0 0 61 0>;
+			iommus = <&apps 0xc01 0x0>;
+			forge,secure-context;
+		};
+		apps_cb15: apps-cb15 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e2f000";
+			forge,legacy-context-bank = <15>;
+			qcom,fixed-context-bank = <15>;
+			forge,legacy-reg = <0x1e2f000 0x1000>;
+			forge,legacy-interrupts = <0 105 0>;
+			iommus = <&apps 0x2c01 0x0>;
+		};
+		apps_cb16: apps-cb16 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e30000";
+			forge,legacy-context-bank = <16>;
+			qcom,fixed-context-bank = <16>;
+			forge,legacy-reg = <0x1e30000 0x1000>;
+			forge,legacy-interrupts = <0 106 0>;
+			iommus = <&apps 0x2c04 0x0>;
+		};
+		apps_cb18: apps-cb18 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e32000";
+			forge,legacy-context-bank = <18>;
+			qcom,fixed-context-bank = <18>;
+			forge,legacy-reg = <0x1e32000 0x1000>;
+			forge,legacy-interrupts = <0 110 0 0 110 0>;
+			iommus = <&apps 0x1d4 0x1>, <&apps 0x1e6 0x1>;
+		};
+		apps_cb19: apps-cb19 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e33000";
+			forge,legacy-context-bank = <19>;
+			qcom,fixed-context-bank = <19>;
+			forge,legacy-reg = <0x1e33000 0x1000>;
+			forge,legacy-interrupts = <0 111 0 0 111 0>;
+			iommus = <&apps 0x2400 0x0>;
+		};
+		apps_cb20: apps-cb20 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e34000";
+			forge,legacy-context-bank = <20>;
+			qcom,fixed-context-bank = <20>;
+			forge,legacy-reg = <0x1e34000 0x1000>;
+			forge,legacy-interrupts = <0 112 0 0 112 0>;
+			iommus = <&apps 0x2000 0x0>;
+		};
+		apps_cb21: apps-cb21 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e35000";
+			forge,legacy-context-bank = <21>;
+			qcom,fixed-context-bank = <21>;
+			forge,legacy-reg = <0x1e35000 0x1000>;
+			forge,legacy-interrupts = <0 113 0 0 113 0>;
+			iommus = <&apps 0x400 0x0>, <&apps 0x3000 0x0>;
+		};
+		apps_cb22: apps-cb22 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e36000";
+			forge,legacy-context-bank = <22>;
+			qcom,fixed-context-bank = <22>;
+			forge,legacy-reg = <0x1e36000 0x1000>;
+			forge,legacy-interrupts = <0 114 0 0 114 0>;
+			iommus = <&apps 0x800 0x3>, <&apps 0x804 0x1>, <&apps 0x807 0x0>, <&apps 0x808 0x3>;
+		};
+		apps_cb23: apps-cb23 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e37000";
+			forge,legacy-context-bank = <23>;
+			qcom,fixed-context-bank = <23>;
+			forge,legacy-reg = <0x1e37000 0x1000>;
+			forge,legacy-interrupts = <0 115 0 0 115 0>;
+			iommus = <&apps 0xc00 0x0>;
+			forge,secure-context;
+		};
+		apps_cb24: apps-cb24 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e38000";
+			forge,legacy-context-bank = <24>;
+			qcom,fixed-context-bank = <24>;
+			forge,legacy-reg = <0x1e38000 0x1000>;
+			forge,legacy-interrupts = <0 116 0>;
+			iommus = <&apps 0x1c06 0x1>, <&apps 0x1c08 0x3>, <&apps 0x1c0c 0x1>;
+		};
+		apps_cb25: apps-cb25 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e39000";
+			forge,legacy-context-bank = <25>;
+			qcom,fixed-context-bank = <25>;
+			forge,legacy-reg = <0x1e39000 0x1000>;
+			forge,legacy-interrupts = <0 117 0>;
+			iommus = <&apps 0x2800 0x0>;
+		};
+		apps_cb26: apps-cb26 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e3a000";
+			forge,legacy-context-bank = <26>;
+			qcom,fixed-context-bank = <26>;
+			forge,legacy-reg = <0x1e3a000 0x1000>;
+			forge,legacy-interrupts = <0 118 0>;
+			iommus = <&apps 0x2802 0x0>;
+		};
+		apps_cb27: apps-cb27 {
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e3b000";
+			forge,legacy-context-bank = <27>;
+			qcom,fixed-context-bank = <27>;
+			forge,legacy-reg = <0x1e3b000 0x1000>;
+			forge,legacy-interrupts = <0 119 0>;
+			iommus = <&apps 0x2804 0x0>;
+		};
+		gpu_cb0: gpu-cb0 {
+			forge,baseline-context = "/soc/qcom,iommu@1f00000/qcom,iommu-ctx@1f08000";
+			forge,legacy-context-bank = <0>;
+			qcom,fixed-context-bank = <0>;
+			forge,legacy-reg = <0x1f08000 0x1000>;
+			forge,legacy-interrupts = <0 240 0>;
+			iommus = <&gpu 0x0 0x0>;
+		};
+		gpu_cb1: gpu-cb1 {
+			forge,baseline-context = "/soc/qcom,iommu@1f00000/qcom,iommu-ctx@1f09000";
+			forge,legacy-context-bank = <1>;
+			qcom,fixed-context-bank = <1>;
+			forge,legacy-reg = <0x1f09000 0x1000>;
+			forge,legacy-interrupts = <0 241 0 0 241 0>;
+			iommus = <&gpu 0x2 0x0>;
+			forge,secure-context;
+		};
+		gpu_cb3: gpu-cb3 {
+			forge,baseline-context = "/soc/qcom,iommu@1f00000/qcom,iommu-ctx@1f0b000";
+			forge,legacy-context-bank = <3>;
+			qcom,fixed-context-bank = <3>;
+			forge,legacy-reg = <0x1f0b000 0x1000>;
+			forge,legacy-interrupts = <0 245 0>;
+			iommus = <&gpu 0x1 0x0>;
+		};
+	};
+	legacy-domains {
+		domain-0 {
+			forge,baseline-domain = "/soc/qcom,iommu-domains/qcom,iommu-domain1";
+			forge,contexts = <&apps_cb15>;
+			forge,virtual-addr-pool = <0x10000000 0xfffffff>;
+		};
+		domain-1 {
+			forge,baseline-domain = "/soc/qcom,iommu-domains/qcom,iommu-domain2";
+			forge,contexts = <&apps_cb22>;
+			forge,virtual-addr-pool = <0x5dc00000 0x7f000000 0xdcc00000 0x1000000>;
+		};
+		domain-2 {
+			forge,baseline-domain = "/soc/qcom,iommu-domains/qcom,iommu-domain3";
+			forge,contexts = <&apps_cb3>;
+			forge,virtual-addr-pool = <0x4b000000 0x12c00000>;
+			forge,secure-domain;
+		};
+		domain-3 {
+			forge,baseline-domain = "/soc/qcom,iommu-domains/qcom,iommu-domain4";
+			forge,contexts = <&apps_cb4>;
+			forge,virtual-addr-pool = <0x25800000 0x25800000>;
+			forge,secure-domain;
+		};
+		domain-4 {
+			forge,baseline-domain = "/soc/qcom,iommu-domains/qcom,iommu-domain5";
+			forge,contexts = <&apps_cb5>;
+			forge,virtual-addr-pool = <0x1000000 0x24800000>;
+			forge,secure-domain;
+		};
+	};
+};

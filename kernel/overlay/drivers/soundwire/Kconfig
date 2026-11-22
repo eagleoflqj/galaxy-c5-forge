@@ -1,0 +1,11 @@
+config C5_SOUNDWIRE_CORE
+	bool "C5 isolated legacy SoundWire bus core"
+	depends on ARM64 && OF && C5_RECOVERY_ONLY && !MODULES
+	depends on !SOUNDWIRE && !SOUNDWIRE_WCD_CTRL
+	default n
+	help
+	  Restore the old SoundWire bus/root and callable core API on the fixed
+	  C5 source profile. This does not select a controller, codec, regmap,
+	  device-tree node or hardware operation. Legacy global SOUNDWIRE and
+	  SOUNDWIRE_WCD_CTRL must stay off to ensure one provider. No defaults
+	  or current profile are changed by this opt-in source candidate.

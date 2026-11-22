@@ -1,0 +1,25 @@
+From: Galaxy C5 Forge contributors
+Subject: [PATCH] SystemUI: tolerate missing fingerprint vendor error text
+
+FingerprintManager can return null for an unknown vendor error string. Keep
+the original error ID and normal failure/lockout handling, using an existing
+localized failure message instead of crashing the entire lockscreen.
+
+This does not restore a missing kernel fingerprint driver or make failed
+authentication succeed. Base: 3eb409bcc54f50cc05b7e252ef235519d2fb20aa.
+
+diff --git a/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java b/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java
+--- a/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java
++++ b/packages/SystemUI/src/com/android/keyguard/KeyguardUpdateMonitor.java
+@@ -1214,7 +1214,10 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener {
+ 
+         @Override
+         public void onAuthenticationError(int errMsgId, CharSequence errString) {
+-            handleFingerprintError(errMsgId, errString.toString());
++            // Unknown vendor errors may not have a framework error string.
++            handleFingerprintError(errMsgId, errString != null ? errString.toString()
++                    : mContext.getString(
++                            com.android.internal.R.string.fingerprint_error_unable_to_process));
+         }
+ 
+         @Override

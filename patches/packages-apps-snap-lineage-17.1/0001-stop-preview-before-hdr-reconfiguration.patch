@@ -1,0 +1,55 @@
+diff --git a/src/com/android/camera/PhotoModule.java b/src/com/android/camera/PhotoModule.java
+index 856bd93..0ea60dc 100755
+--- a/src/com/android/camera/PhotoModule.java
++++ b/src/com/android/camera/PhotoModule.java
+@@ -4433,6 +4433,20 @@ public class PhotoModule
+ 
+     // If the Camera is idle, update the parameters immediately, otherwise
+     // accumulate them in mUpdateSet and update later.
++    private boolean needsHdrPreviewRestart(int updateSet) {
++        if ((updateSet & UPDATE_PARAM_PREFERENCE) == 0
++                || mCameraDevice == null || mParameters == null
++                || mCameraState == PREVIEW_STOPPED || mCameraState == INIT) {
++            return false;
++        }
++        boolean hdrActive = CameraUtil.SCENE_MODE_HDR.equals(mParameters.getSceneMode());
++        boolean hdrRequested = mActivity.getString(R.string.setting_on_value).equals(
++                mPreferences.getString(CameraSettings.KEY_CAMERA_HDR,
++                        mActivity.getString(R.string.pref_camera_hdr_default)));
++        return hdrActive != hdrRequested && (hdrActive || CameraUtil.isSupported(
++                CameraUtil.SCENE_MODE_HDR, mParameters.getSupportedSceneModes()));
++    }
++
+     private void setCameraParametersWhenIdle(int additionalUpdateSet) {
+         mUpdateSet |= additionalUpdateSet;
+         if (mCameraDevice == null) {
+@@ -4441,10 +4455,18 @@ public class PhotoModule
+             mUpdateSet = 0;
+             return;
+         } else if (isCameraIdle()) {
++            // Changing HDR rebuilds the legacy HAL stream configuration. Release
++            // the active preview before any preference update reaches the HAL.
++            boolean restartForHdr = needsHdrPreviewRestart(mUpdateSet);
++            if (restartForHdr) {
++                stopPreview();
++            }
+             setCameraParameters(mUpdateSet);
+-             if(mRestartPreview && mCameraState != PREVIEW_STOPPED) {
++            if (restartForHdr || (mRestartPreview && mCameraState != PREVIEW_STOPPED)) {
+                 Log.v(TAG, "Restarting Preview...");
+-                stopPreview();
++                if (!restartForHdr) {
++                    stopPreview();
++                }
+                 resizeForPreviewAspectRatio();
+                 startPreview();
+                 setCameraState(IDLE);
+@@ -5027,7 +5049,7 @@ public class PhotoModule
+         boolean recordLocation = RecordLocationPreference.get(mPreferences,
+                 CameraSettings.KEY_RECORD_LOCATION);
+         mLocationManager.recordLocation(recordLocation);
+-        if(needRestart()){
++        if (needRestart() && !needsHdrPreviewRestart(UPDATE_PARAM_PREFERENCE)) {
+             Log.v(TAG, "Restarting Preview... Camera Mode Changed");
+             setCameraParameters(UPDATE_PARAM_PREFERENCE);
+             stopPreview();

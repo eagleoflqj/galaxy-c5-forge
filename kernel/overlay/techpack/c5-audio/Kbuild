@@ -1,0 +1,10 @@
+ifeq ($(CONFIG_C5_AUDIO),y)
+# Keep the external audio driver's feature configuration local to this subtree.
+# Do not pretend that C5 is an SDM450/SDM845 board or export to sibling packs.
+include $(srctree)/techpack/c5-audio/config/c5auto.conf
+export $(shell sed 's/=.*//' $(srctree)/techpack/c5-audio/config/c5auto.conf)
+subdir-ccflags-y += -I$(srctree)/techpack/c5-audio/include
+subdir-ccflags-y += -I$(srctree)/techpack/c5-audio/include/uapi
+subdir-ccflags-y += -include $(srctree)/techpack/c5-audio/config/c5autoconf.h
+obj-y += ipc/ dsp/ asoc/ soc/
+endif

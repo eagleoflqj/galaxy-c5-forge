@@ -1,0 +1,89 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* HOST-ONLY binding fixture, not a board DTS and never a boot input.
+ * Register ranges, IRQ cells, pin counts and XO selector are from C5 baseline
+ * DTB SHA-256 83e02661e33cc35a25c6fee66abb0e2f492e2dc854b79a396a8eb90817869713.
+ * Missing CPU/memory/RPM/regulator/pinmux/peripheral nodes are intentional:
+ * compiling this fixture must not be represented as a C5 board build.
+ */
+/dts-v1/;
+#include <dt-bindings/clock/msm-clocks-8952.h>
+
+/ {
+	compatible = "samsung,c5lte-mpm-host-fixture";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	/* Virtual IRQ/policy nodes have no invented MMIO reg property. */
+	mpm_gpio: wake-gpio {
+		compatible = "qcom,mpm-gpio-c5lte", "qcom,mpm-gpio";
+		interrupt-parent = <&mpm_gic>;
+		interrupt-controller;
+		#address-cells = <0>;
+		#interrupt-cells = <2>;
+	};
+
+	mpm-xo {
+		compatible = "qcom,mpm-c5lte-xo";
+		qcom,mpm-gic-domain = <&mpm_gic>;
+		qcom,mpm-gpio-domain = <&mpm_gpio>;
+		clocks = <&clock_gcc clk_xo_lpm_clk>;
+		clock-names = "xo";
+	};
+
+	/* Unit address follows the measured zero-based bus translation. */
+	soc@0 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		intc: interrupt-controller@b000000 {
+			compatible = "qcom,msm-qgic2";
+			interrupt-controller;
+			#address-cells = <0>;
+			#interrupt-cells = <3>;
+			reg = <0xb000000 0x1000>, <0xb002000 0x1000>;
+		};
+
+		clock_gcc: qcom,gcc@1800000 {
+			compatible = "qcom,gcc-8952";
+			reg = <0x1800000 0x80000>, <0xb116000 0x40>,
+			      <0xb016000 0x40>, <0xb1d0000 0x40>;
+			reg-names = "cc_base", "apcs_c0_base", "apcs_c1_base", "apcs_cci_base";
+			#clock-cells = <1>;
+		};
+
+		mpm_gic: qcom,mpm@601d0 {
+			compatible = "qcom,mpm-gic-c5lte", "qcom,mpm-gic";
+			reg = <0x601d0 0x1000>, <0xb011008 4>;
+			reg-names = "vmpm", "ipc";
+			interrupts = <0 171 1>;
+			interrupt-parent = <&intc>;
+			interrupt-controller;
+			#address-cells = <0>;
+			#interrupt-cells = <3>;
+			qcom,num-mpm-irqs = <64>;
+		};
+
+		pinctrl@1000000 {
+			compatible = "qcom,msm-tlmm-8916";
+			reg = <0x1000000 0x300000>;
+			interrupts = <0 208 0>;
+			interrupt-parent = <&mpm_gic>;
+			gp {
+				qcom,num-pins = <134>;
+				#qcom,pin-cells = <1>;
+				msm_gpio {
+					compatible = "qcom,msm-tlmm-gp";
+					gpio-controller;
+					#gpio-cells = <2>;
+					interrupt-controller;
+					#address-cells = <0>;
+					#interrupt-cells = <2>;
+					num_irqs = <134>;
+					interrupt-parent = <&mpm_gpio>;
+				};
+			};
+		};
+	};
+};

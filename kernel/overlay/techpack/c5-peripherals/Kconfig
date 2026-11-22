@@ -1,0 +1,19 @@
+config C5_HALL
+    bool "Samsung C5 legacy Hall lid switch"
+    depends on INPUT && GPIOLIB && OF
+
+config ANDROID_TIMED_OUTPUT
+    bool "Legacy Android timed output interface"
+
+config C5_DC_VIBRATOR
+    bool "Samsung C5 regulator DC vibrator"
+    depends on OF && REGULATOR && PM
+    select ANDROID_TIMED_OUTPUT
+
+config LEDS_SM5705_RGB
+    bool "C5 SM5705 notification RGB LED"
+    depends on MFD_SM5705 && LEDS_CLASS
+
+config SEC_THERMISTOR
+    bool "C5 calibrated AP thermistor"
+    depends on HWMON && SENSORS_QPNP_ADC_VOLTAGE

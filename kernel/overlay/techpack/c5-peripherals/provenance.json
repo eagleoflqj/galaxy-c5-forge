@@ -1,0 +1,21 @@
+{
+  "original_timed_output_files": {
+    "drivers/staging/android/timed_output.c": "e2c6804bb424b6b064b0396b45688324fe218d50bd5dd1f46c780b82b8cc200b",
+    "drivers/staging/android/timed_output.h": "7e475c3534483e88ec22b81531961ca57ab8f7cf0ab54bd86d7bdf7509eff26e"
+  },
+  "original_timed_output_license": "GPL-2.0-only; original notices retained",
+  "new_drivers_license": "GPL-2.0-only",
+  "hardware_binding_source": "arch/arm/boot/dts/samsung/msm8952/msm8952-sec-c5lte-chn-hk-r09.dts",
+  "DC_motor_reference": "drivers/motor/ss_vibrator.c CONFIG_DC_MOTOR_PMIC branch; original max intensity 3.3 V, regulator-only control",
+  "hall_reference": "drivers/input/keyboard/hall_ic.c; GPIO high OPEN; standard SW_LID is inverse",
+  "adaptations": [
+    "Strict nonnegative timed-output integer parser",
+    "Publish driver data before exposing enable attribute",
+    "Remove attribute before disabling at unregister",
+    "Clear failed class pointer",
+    "Managed Hall GPIO/input/IRQ lifetime and balanced suspend wake",
+    "DC-only regulator driver with command/state lock ordering and bounded 10000 ms timer",
+    "No raw PWM MMIO, factory tuning or forced regulator disable at probe"
+  ],
+  "hardware_acceptance": false
+}

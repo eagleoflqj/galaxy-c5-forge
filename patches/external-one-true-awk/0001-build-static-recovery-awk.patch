@@ -1,0 +1,21 @@
+--- a/Android.bp
++++ b/Android.bp
+@@ -51,6 +51,18 @@
+     defaults: ["awk-defaults"],
+ }
+ 
++// Recovery diagnostics must work without mounting Android system or vendor.
++cc_binary {
++    name: "awk_recovery",
++    defaults: ["awk-defaults"],
++    stem: "awk",
++    recovery: true,
++    static_executable: true,
++    static_libs: ["libc", "libm", "libdl"],
++    system_shared_libs: [],
++    stl: "none",
++}
++
+ cc_binary {
+     name: "awk_vendor",
+     defaults: ["awk-defaults"],

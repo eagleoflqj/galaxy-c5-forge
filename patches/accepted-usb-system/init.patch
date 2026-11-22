@@ -1,0 +1,81 @@
+--- a/system/core/init/builtins.cpp
++++ b/system/core/init/builtins.cpp
+@@ -855,6 +855,70 @@
+     return Success();
+ }
+ 
++static Result<Success> bind_c5_audio(const std::string& root, const std::string& profile) {
++    const std::map<std::string, std::string> products = {{"audio_source", "0x2d02"},
++                                                         {"audio_source,adb", "0x2d03"},
++                                                         {"accessory,audio_source", "0x2d04"},
++                                                         {"accessory,audio_source,adb", "0x2d05"}};
++    const auto product = products.find(profile);
++    if (product == products.end()) return Error() << "Unsupported USB audio profile";
++    const std::string config = root + "configs/b.1/";
++    const std::map<std::string, std::string> functions = {{"accessory", "accessory.gs2"},
++                                                          {"audio_source", "audio_source.gs3"},
++                                                          {"adb", "ffs.adb"}};
++    const auto names = android::base::Split(profile, ",");
++    auto requested = [&]() {
++        return android::base::GetProperty("sys.usb.config", "") == profile &&
++               android::base::GetProperty("sys.usb.configfs", "") == "1" &&
++               android::base::GetProperty("sys.usb.controller", "") == "msm_hsusb" &&
++               (names.back() != "adb" ||
++                android::base::GetProperty("sys.usb.ffs.ready", "") == "1");
++    };
++    auto matches = [&](const std::string& path, const std::string& expected) {
++        std::string value;
++        return android::base::ReadFileToString(root + path, &value) &&
++               android::base::Trim(value) == expected;
++    };
++    if (!requested() || !matches("UDC", "") || !matches("idVendor", "0x18d1") ||
++        !matches("idProduct", product->second))
++        return Error() << "USB audio configuration mismatch";
++    DIR* raw = opendir(config.c_str());
++    if (!raw) return ErrnoError() << "Cannot inspect USB configuration";
++    std::unique_ptr<DIR, decltype(&closedir)> dir(raw, closedir);
++    size_t links = 0;
++    for (;;) {
++        errno = 0;
++        auto* entry = readdir(dir.get());
++        if (!entry) {
++            if (errno) return ErrnoError() << "Cannot enumerate USB configuration";
++            break;
++        }
++        struct stat st;
++        if (lstat((config + entry->d_name).c_str(), &st))
++            return ErrnoError() << "Cannot inspect entry";
++        if (S_ISLNK(st.st_mode)) ++links;
++    }
++    if (links != names.size()) return Error() << "Incomplete USB function set";
++    for (size_t i = 0; i < names.size(); ++i) {
++        struct stat link, target, expected;
++        const auto slot = config + "f" + std::to_string(i + 1);
++        const auto function = root + "functions/" + functions.at(names[i]);
++        if (lstat(slot.c_str(), &link) || !S_ISLNK(link.st_mode) || stat(slot.c_str(), &target) ||
++            stat(function.c_str(), &expected) || !S_ISDIR(expected.st_mode) ||
++            target.st_dev != expected.st_dev || target.st_ino != expected.st_ino)
++            return Error() << "USB function mismatch at " << slot;
++    }
++    if (auto bind = WriteFile(root + "UDC", "msm_hsusb"); !bind) return bind.error();
++    if (matches("UDC", "msm_hsusb") && requested() && property_set("sys.usb.state", profile) == 0)
++        return Success();
++    if (auto undo = WriteFile(root + "UDC", "none"); !undo) return undo.error();
++    return Error() << "USB bind unconfirmed or request changed";
++}
++
++static Result<Success> do_c5_bind_audio(const BuiltinArguments& args) {
++    return bind_c5_audio("/config/usb_gadget/g1/", args[1]);
++}
++
+ static Result<Success> do_write(const BuiltinArguments& args) {
+     if (auto result = WriteFile(args[1], args[2]); !result) {
+         return Error() << "Unable to write to file '" << args[1] << "': " << result.error();
+@@ -1231,6 +1295,7 @@
+     constexpr std::size_t kMax = std::numeric_limits<std::size_t>::max();
+     // clang-format off
+     static const Map builtin_functions = {
++        {"c5_bind_audio",           {1,     1,    {false,  do_c5_bind_audio}}},
+         {"bootchart",               {1,     1,    {false,  do_bootchart}}},
+         {"chmod",                   {2,     2,    {true,   do_chmod}}},
+         {"chown",                   {2,     3,    {true,   do_chown}}},

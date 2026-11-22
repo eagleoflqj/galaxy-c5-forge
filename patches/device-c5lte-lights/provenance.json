@@ -1,0 +1,8 @@
+{
+  "upstream": "hardware/qcom-caf/msm8952/display/liblight/lights.c",
+  "license": "Apache-2.0; original AOSP/Linux Foundation notices retained",
+  "upstream_sha256": "1736dcfc452dd36cedb0bd3c4278b71bf18455c725813c7899a3e51287613e80",
+  "fixed_sha256": "8aa12ab62d868fbf6d8e315a7b2e7117c9aad6dd9b659ee8b8a2f4bf25cc71fc",
+  "only_changed_region": "speaker RGB dispatch and three return-code paths; normal backlight/buttons/open/close unchanged",
+  "device_integration": "Apply board patch then copy Android.mk and lights.c into device/samsung/c5lte/lights; package names and HIDL service remain unchanged"
+}

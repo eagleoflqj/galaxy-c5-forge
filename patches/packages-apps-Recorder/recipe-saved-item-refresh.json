@@ -1,0 +1,19 @@
+{
+  "purpose": "Refresh the existing last-recording button after asynchronous MediaProvider save, without leaving or relaunching Recorder",
+  "source_project": "LineageOS/android_packages_apps_Recorder",
+  "source_revision": "eb08cfc4ba8759b356afd48a2fb2faf349fcf4a1",
+  "reviewer": "scripts/recorder-last-item-refresh-review.py",
+  "reviewer_sha256": "05f3ecfd304a0dd72ebeff8fe7f1ec42a884975c24c6ebb8a53d6d3f90011b12",
+  "existing_listener": "RecorderActivity.onSharedPreferenceChanged",
+  "existing_keys": ["sound_last_path", "screen_last_path"],
+  "new_action": "updateLastItemStatus on an existing saved-item-key event",
+  "APK_sha256": "863cad444cc8a7fc2fd1ebecf2fbc1ca04ec2d7f37d484c4723c681b038e47a0",
+  "APK_bytes": 2492280,
+  "odex_sha256": "f0fbeca0845b0e557ba79d103ba036b1d6fe491ac5aae565aa7182d6186359d9",
+  "vdex_sha256": "4a8031924e582dfe0af670b32c3495a649fbf54c06ea72c9993aedf73f72a0e9",
+  "preserved_signer_certificate_sha256": "a40da80a59d170caa950cf15c18c454d47a39b26989d8b640ecd745ba71bf5dc",
+  "complete_SYSTEM_sha256": "8ebfad1e305d560674a7e88b84827d51ac65d345abed94ef9c21864e85618821",
+  "preserved": ["manifest and resources", "permissions", "audio/storage pipeline", "existing recordings and preferences", "all unrelated SYSTEM files, metadata and xattrs"],
+  "HOST_evidence": "Compiled real Java callback regression reproduces the old async-save/first-item failure and passes the new callback; full suite 1430 tests",
+  "hardware_acceptance": "Owner confirms the v135 repair after replay control observed visible/enabled/clickable 1.411s after stop without Home/reentry; actual latest generated file played, old recordings preserved; first-ever case HOST-regressed rather than simulated by deleting phone preferences"
+}

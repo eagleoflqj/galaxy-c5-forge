@@ -1,0 +1,8 @@
+# Lessons from the Galaxy C5 port
+
+* **Trace configuration through the installed image.** The conventional Android build selects the device's older kernel. The 4.9 BOOT and USB-fixed SYSTEM followed separate build and packaging paths. Verify the selected source, linked component and installed file before attributing a device result to a change.
+* **Keep the final inputs together.** The kernel accumulated ordered mounts over directories and individual files. Later mounts could hide an earlier fix. Preserve the effective source tree, configuration, toolchain identity and external firmware hashes alongside the build recipe.
+* **Replay from the pinned revision.** The original EFS policy patch worked on the prepared device tree but conflicted with an existing file in a clean checkout. A vendor makefile that initially looked like hundreds of hand edits was reproduced exactly by running the device's existing generator with its patched file list.
+* **Compare against the baseline with the same hardware.** The same cable and charger showed the same charging limitation on both kernels. That comparison settled the scope without a speculative driver change.
+* **Choose evidence that measures the requested behavior.** A matching USB descriptor establishes enumeration. PCM transfer, cellular traffic, and OTG peripheral operation each require different evidence. Preserve these limits in release notes so future contributors can focus on the remaining questions.
+* **Keep recovery reproducible.** Pair exact hashes and sizes with separate full-partition rollback images. Checking the intended payload and independently reading back the result catch different mistakes.

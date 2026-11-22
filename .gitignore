@@ -20,3 +20,8 @@ logs/
 *.pk8
 *.x509.pem
 .env
+
+# Source files in the kernel firmware driver directory
+!/kernel/overlay/drivers/firmware/
+/kernel/overlay/drivers/firmware/*
+!/kernel/overlay/drivers/firmware/psci.c

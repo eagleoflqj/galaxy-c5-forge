@@ -1,0 +1,43 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* HOST-ONLY display-domain evidence. NEVER a board DT.
+ * Pools are source-defined legacy MDSS contracts, not baseline DT pools.
+ * No runtime SMMU compatible, bank routing, clock or secure ownership is invented.
+ * forge,* properties are evidence metadata, not runtime bindings.
+ */
+/dts-v1/;
+
+/ {
+	compatible = "samsung,c5lte-mdss-domain-host-fixture";
+	providers {
+		apps: apps {
+			#iommu-cells = <2>;
+			forge,baseline-controller = "/soc/qcom,iommu@1e00000";
+		};
+	};
+	display {
+		forge,baseline-consumer = "/soc/qcom,mdss_mdp@1a00000";
+		mdp-unsecure {
+			forge,legacy-client = "mdp_ns";
+			forge,legacy-context-name = "mdp_0";
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e37000";
+			forge,legacy-context-bank = <23>;
+			forge,legacy-reg = <0x1e37000 0x1000>;
+			forge,legacy-interrupts = <0 115 0 0 115 0>;
+			forge,secure-context;
+			qcom,virtual-addr-pool = <0x20000 0x3ffe0000>;
+			iommus = <&apps 0xc00 0>;
+		};
+		mdp-secure {
+			forge,legacy-client = "mdp_secure";
+			forge,legacy-context-name = "mdp_1";
+			forge,baseline-context = "/soc/qcom,iommu@1e00000/qcom,iommu-ctx@1e26000";
+			forge,legacy-context-bank = <6>;
+			forge,legacy-reg = <0x1e26000 0x1000>;
+			forge,legacy-interrupts = <0 61 0 0 61 0>;
+			forge,secure-context;
+			forge,secure-domain;
+			qcom,virtual-addr-pool = <0x40000000 0x40000000>;
+			iommus = <&apps 0xc01 0>;
+		};
+	};
+};

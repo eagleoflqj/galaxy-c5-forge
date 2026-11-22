@@ -1,0 +1,93 @@
+/* SPDX-License-Identifier: GPL-2.0-only */
+/* HOST-ONLY extension of the measured MPM fixture, NEVER a boot input.
+ * Selected SMEM/SMD-RPM/spinlock/GCC-supply properties are copied from C5
+ * DTB 83e02661e33cc35a25c6fee66abb0e2f492e2dc854b79a396a8eb90817869713.
+ * No CPU, RAM/reservations, full PMIC/CPR/SPM, other remote edges or peripherals.
+ * This file is intentionally absent from board DT build targets.
+ */
+#include "c5lte-mpm-host-fixture.dts"
+
+/ {
+	compatible = "samsung,c5lte-rpm-host-fixture";
+	/* Virtual RPM bus has no MMIO. Root placement avoids claiming a simple-bus
+	 * register range; native RPM probe uses the same named SMD edge.
+	 */
+	qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>;
+		rpm-regulator-smpa2 {
+			compatible = "qcom,rpm-smd-regulator-resource";
+			qcom,resource-name = "smpa";
+			qcom,resource-id = <2>;
+			qcom,regulator-type = <1>;
+			qcom,hpm-min-load = <100000>;
+			status = "okay";
+			pm8950_s2_level: regulator-s2-level {
+				compatible = "qcom,rpm-smd-regulator";
+				regulator-name = "pm8950_s2_level";
+				qcom,set = <3>;
+				regulator-min-microvolt = <16>;
+				regulator-max-microvolt = <384>;
+				qcom,use-voltage-level;
+			};
+			pm8950_s2_level_ao: regulator-s2-level-ao {
+				compatible = "qcom,rpm-smd-regulator";
+				regulator-name = "pm8950_s2_level_ao";
+				qcom,set = <1>;
+				regulator-min-microvolt = <16>;
+				regulator-max-microvolt = <384>;
+				qcom,use-voltage-level;
+			};
+		};
+		rpm-regulator-ldoa7 {
+			compatible = "qcom,rpm-smd-regulator-resource";
+			qcom,resource-name = "ldoa";
+			qcom,resource-id = <7>;
+			qcom,regulator-type = <0>;
+			qcom,hpm-min-load = <10000>;
+			status = "okay";
+			pm8950_l7_ao: regulator-l7-ao {
+				compatible = "qcom,rpm-smd-regulator";
+				regulator-name = "pm8950_l7_ao";
+				qcom,set = <1>;
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+				qcom,init-voltage = <1800000>;
+			};
+		};
+	};
+	soc@0 {
+		qcom,ipc-spinlock@1905000 {
+			compatible = "qcom,ipc-spinlock-sfpb";
+			reg = <0x1905000 0x8000>;
+			qcom,num-locks = <8>;
+		};
+		qcom,smem@86300000 {
+			compatible = "qcom,smem";
+			reg = <0x86300000 0x100000>, <0xb011008 4>,
+			      <0x60000 0x8000>, <0x193d000 8>;
+			reg-names = "smem", "irq-reg-base", "aux-mem1", "smem_targ_info_reg";
+			qcom,mpu-enabled;
+			qcom,smd-rpm {
+				compatible = "qcom,smd";
+				qcom,smd-edge = <15>;
+				qcom,smd-irq-offset = <0>;
+				qcom,smd-irq-bitmask = <1>;
+				interrupts = <0 168 1>;
+				interrupt-parent = <&mpm_gic>;
+				label = "rpm";
+				qcom,irq-no-suspend;
+				qcom,not-loadable;
+			};
+		};
+	};
+};
+
+&clock_gcc {
+	vdd_dig-supply = <&pm8950_s2_level>;
+	vdd_sr2_dig-supply = <&pm8950_s2_level_ao>;
+	vdd_sr2_pll-supply = <&pm8950_l7_ao>;
+	vdd_hf_dig-supply = <&pm8950_s2_level_ao>;
+	vdd_hf_pll-supply = <&pm8950_l7_ao>;
+};

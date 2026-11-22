@@ -124,11 +124,23 @@ apply_patch_set \
   "$workdir/device/samsung/c5lte" \
   "$project_dir/patches/device-samsung-c5lte"
 
+apply_patch_set \
+  "$workdir/external/one-true-awk" \
+  "$project_dir/patches/external-one-true-awk"
+
 if [[ "$lineage_version" == 16.0 ]]; then
   apply_patch_set \
     "$workdir/bootable/recovery" \
     "$project_dir/patches/bootable-recovery"
 else
+  apply_patch_set \
+    "$workdir/packages/apps/Settings" \
+    "$project_dir/patches/packages-apps-settings-lineage-17.1"
+
+  apply_patch_set \
+    "$workdir/packages/apps/Snap" \
+    "$project_dir/patches/packages-apps-snap-lineage-17.1"
+
   apply_patch_set \
     "$workdir/device/samsung/c5lte" \
     "$project_dir/patches/device-samsung-c5lte-lineage-17.1"

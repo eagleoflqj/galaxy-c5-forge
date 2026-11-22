@@ -1,0 +1,6 @@
+--- a/board/lights.mk
++++ b/board/lights.mk
+@@ -1,2 +1,2 @@
+ # Lights
+-TARGET_PROVIDES_LIBLIGHT := false
++TARGET_PROVIDES_LIBLIGHT := true

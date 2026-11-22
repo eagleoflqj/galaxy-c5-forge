@@ -1,0 +1,122 @@
+# C5's selected GPL battery drivers. Unported alternatives are not exposed.
+menuconfig BATTERY_SAMSUNG
+	bool "Samsung C5 battery bring-up candidate"
+	depends on ARCH_MSM8952 && I2C && POWER_SUPPLY && OF
+	select C5_CHARGING_MODE
+	select SEC_CLASS
+	select QPNP_VADC
+	select MFD_SM5705
+	help
+	  Compile the C5 Samsung battery policy and its measured-board providers.
+	  Compilation is not hardware acceptance of charging or thermal safety.
+
+if BATTERY_SAMSUNG
+
+config C5_RECOVERY_ONLY
+	bool "C5 recovery-only profile: reject persistent AFC PARAM writes"
+	default y
+
+config BATTERY_SAMSUNG_V2
+	bool "Samsung battery policy V2"
+	default y
+
+config BATTERY_SAMSUNG_DATA_FILE
+	string "Samsung battery data file"
+	default "default_battery_data.h"
+
+config SLOW_CHARGING_CURRENT_STANDARD
+	int "Slow charging current standard"
+	default 1000
+
+config BATTERY_SWELLING
+	bool "Battery swelling protection"
+
+config BATTERY_AGE_FORECAST
+	bool "Battery age forecast"
+
+config MULTI_CHARGING
+	bool "Samsung multi-charger policy"
+
+config STEP_CHARGING
+	bool "Samsung step-charging policy"
+
+config FUELGAUGE_SM5705
+	bool "SM5705 fuel gauge"
+
+config PREVENT_SOC_JUMP
+	bool "Preserve SM5705 sudden state-of-charge change protection"
+
+config CHARGER_SM5705
+	bool "SM5705 charger"
+	depends on MFD_SM5705
+
+config CHARGER_DA9155
+	bool "DA9155 secondary charger"
+
+config AFC_CHARGER_MODE
+	bool "Adaptive fast-charger mode"
+
+config SAMSUNG_LPM_MODE
+	bool "Samsung low-power charging mode"
+
+config CHANGE_VBUS_VOLTAGE
+	bool "MUIC adaptive VBUS voltage control"
+	depends on MUIC_UNIVERSAL_SM5705_AFC
+
+config SEC_MPP_SHARE
+	bool "Samsung shared ADC multiplexer"
+
+config SEC_MPP_SHARE_LOW_TEMP_WA
+	bool "Shared headset/battery thermal ADC workaround"
+	depends on SEC_MPP_SHARE && SAMSUNG_JACK
+
+config SAMSUNG_JACK
+	bool "Samsung headset-jack provider"
+	depends on INPUT && GPIOLIB
+	select SWITCH
+	select INPUT_GPIO
+
+config VBUS_NOTIFIER
+	bool "Samsung VBUS notifier"
+
+config USE_MUIC
+	bool "Samsung MUIC hardware support"
+	select MUIC_NOTIFIER
+
+source "drivers/muic/universal/Kconfig"
+
+endif
+
+config THERMAL_TSENS8974
+	bool "C5 MSM8952 TSENS calibration and temperature driver"
+	depends on ARCH_MSM8952 && THERMAL
+	depends on !THERMAL_TSENS && !QCOM_TSENS
+
+config THERMAL_MONITOR
+	bool "C5 kernel thermal CPU-frequency monitor"
+	depends on THERMAL_TSENS8974
+	depends on CPU_FREQ_MSM || (C5_RECOVERY_ONLY && CPU_FREQ)
+	help
+	  Keep native thermal monitoring in the recovery-only C5 CPUFreq-driver
+	  isolation experiment. The CPUFreq core interfaces remain required.
+	  Without a board CPUFreq driver, frequency-based mitigation is not
+	  available; this does not certify thermal safety or a production kernel.
+
+config MFD_SM5705
+	bool "Siliconmitus SM5705 companion PMIC"
+	depends on ARCH_MSM8952 && I2C=y
+	select MFD_CORE
+
+config REGULATOR_SM5705
+	bool "SM5705 USB LDO regulators"
+	depends on MFD_SM5705 && REGULATOR
+
+source "drivers/switch/Kconfig"
+
+config C5_USB_OTG_POWER
+    bool "C5 checked SM5705 OTG operation backend"
+    depends on C5_RECOVERY_ONLY && CHARGER_SM5705
+    default n
+    help
+      Serialize operation-table transactions and propagate bus errors for the
+      optional native C5 OTG source path. No new voltage/current tables.

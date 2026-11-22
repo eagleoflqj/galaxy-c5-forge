@@ -1,0 +1,4 @@
+# The installed fstab defines the existing 256 MiB zram device. mount_all
+# does not enable swap entries; use Android's native fs_mgr action once.
+on post-fs-data && property:ro.config.zram=true
+    swapon_all /vendor/etc/fstab.qcom

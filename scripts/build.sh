@@ -804,6 +804,7 @@ if [[ "$target" == recovery ]]; then
   stat --printf='artifact=%n size=%s bytes\n' "$artifact"
   sha256sum "$artifact"
   check_boot_header "$artifact"
+  python3 "${project_dir}/scripts/recovery-awk.py" check --image "$artifact"
   if [[ "$lineage_version" == 17.1 ]]; then
     check_kernel_restart_reason_output "${product_out}/obj/KERNEL_OBJ"
     check_kernel_ipa_shutdown_output "${product_out}/obj/KERNEL_OBJ"

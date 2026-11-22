@@ -1,0 +1,28 @@
+C5-only conservative MPM XO policy (host integration experiment)
+
+This policy node is separate from the early MPM interrupt controllers because
+of_irq_init marks IRQCHIP_DECLARE nodes OF_POPULATED before platform population.
+Do not clear that flag or instantiate a second IRQ controller.
+
+Required properties:
+- compatible: "qcom,mpm-c5lte-xo"
+- qcom,mpm-gic-domain: phandle of the "qcom,mpm-gic-c5lte", "qcom,mpm-gic" controller
+- qcom,mpm-gpio-domain: phandle of the "qcom,mpm-gpio-c5lte", "qcom,mpm-gpio" controller
+- clocks: phandle/specifier for the board's XO low-power clock voter
+- clock-names: "xo"
+
+Both early domains must be successfully initialized. The GIC parent must be
+the measured GICv2 linear domain; GPIO IRQs are bounded by the measured C5
+134-pin controller. No LPI or neighboring-board mapping is accepted.
+The GPIO MPM node must set interrupt-parent to the C5 GIC MPM node, enforcing
+successful GIC/MPM MMIO initialization before GPIO-domain publication.
+
+Unlisted enabled OR wake-enabled IRQs retain XO and prohibit RPM deep sleep.
+Mapped and measured bypass IRQs do not require this XO vote. This conservative
+union intentionally sacrifices some suspend depth rather than switching
+bitmaps using unvalidated PM transition ordering. It is not a hardware wake
+acceptance result and must not be represented as legacy power-policy parity.
+
+No clock provider/specifier is invented here. Reconcile the measured C5 clock
+binding with the 4.9 provider before adding a board node. Missing/deferred
+clocks, invalid domain references and failed votes leave deep sleep closed.

@@ -1,0 +1,29 @@
+--- a/services/audioflinger/AudioFlinger.cpp
++++ b/services/audioflinger/AudioFlinger.cpp
+@@ -62,6 +62,7 @@
+ #include <powermanager/PowerManager.h>
+ 
+ #include <media/IMediaLogService.h>
++#include <media/IAudioPolicyService.h>
+ #include <media/MemoryLeakTrackUtil.h>
+ #include <media/nbaio/Pipe.h>
+ #include <media/nbaio/PipeReader.h>
+@@ -3285,6 +3286,8 @@
+     return status;
+ }
+ 
++#include "c5-effect-policy-barrier.inc"
++
+ sp<IEffect> AudioFlinger::createEffect(
+         effect_descriptor_t *pDesc,
+         const sp<IEffectClient>& effectClient,
+@@ -3393,6 +3396,9 @@
+             ALOGV("createEffect got output %d", io);
+         }
+ 
++        // Policy initialization calls setStreamVolume(), which needs mLock.
++        // Do not wait for policy publication while holding that same lock.
++        c5_wait_for_audio_policy_before_effect_lock();
+         Mutex::Autolock _l(mLock);
+ 
+         // If output is not specified try to find a matching audio session ID in one of the

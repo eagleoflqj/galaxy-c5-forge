@@ -1,0 +1,78 @@
+diff --git a/src/com/android/settings/development/AdbPreferenceController.java b/src/com/android/settings/development/AdbPreferenceController.java
+index 468c5bd..2248180 100644
+--- a/src/com/android/settings/development/AdbPreferenceController.java
++++ b/src/com/android/settings/development/AdbPreferenceController.java
+@@ -18,15 +18,22 @@ package com.android.settings.development;
+ 
+ 
+ import android.content.Context;
++import android.database.ContentObserver;
++import android.os.Handler;
++import android.os.Looper;
++import android.provider.Settings;
+ 
+ import androidx.annotation.Nullable;
+ import androidx.preference.Preference;
+ 
+ import com.android.settings.core.PreferenceControllerMixin;
++import com.android.settingslib.core.lifecycle.LifecycleObserver;
++import com.android.settingslib.core.lifecycle.events.OnPause;
++import com.android.settingslib.core.lifecycle.events.OnResume;
+ import com.android.settingslib.development.AbstractEnableAdbPreferenceController;
+ 
+ public class AdbPreferenceController extends AbstractEnableAdbPreferenceController implements
+-        PreferenceControllerMixin {
++        PreferenceControllerMixin, LifecycleObserver, OnResume, OnPause {
+ 
+     private final DevelopmentSettingsDashboardFragment mFragment;
+ 
+@@ -35,6 +42,32 @@ public class AdbPreferenceController extends AbstractEnableAdbPreferenceControll
+         mFragment = fragment;
+     }
+ 
++    private final ContentObserver mAdbObserver = new ContentObserver(
++            new Handler(Looper.getMainLooper())) {
++        @Override
++        public void onChange(boolean selfChange) {
++            if (mPreference != null) {
++                updateState(mPreference);
++            }
++        }
++    };
++
++    @Override
++    public void onResume() {
++        if (mPreference != null) {
++            mContext.getContentResolver().registerContentObserver(
++                    Settings.Global.getUriFor(Settings.Global.ADB_ENABLED), false, mAdbObserver);
++            updateState(mPreference);
++        }
++    }
++
++    @Override
++    public void onPause() {
++        if (mPreference != null) {
++            mContext.getContentResolver().unregisterContentObserver(mAdbObserver);
++        }
++    }
++
+     public void onAdbDialogConfirmed() {
+         writeAdbSetting(true);
+     }
+diff --git a/src/com/android/settings/development/DevelopmentSettingsDashboardFragment.java b/src/com/android/settings/development/DevelopmentSettingsDashboardFragment.java
+index ca46b24..e7558af 100644
+--- a/src/com/android/settings/development/DevelopmentSettingsDashboardFragment.java
++++ b/src/com/android/settings/development/DevelopmentSettingsDashboardFragment.java
+@@ -449,7 +449,11 @@ public class DevelopmentSettingsDashboardFragment extends RestrictedDashboardFra
+         controllers.add(new WebViewAppPreferenceController(context));
+         controllers.add(new CoolColorTemperaturePreferenceController(context));
+         controllers.add(new DisableAutomaticUpdatesPreferenceController(context));
+-        controllers.add(new AdbPreferenceController(context, fragment));
++        final AdbPreferenceController adb = new AdbPreferenceController(context, fragment);
++        controllers.add(adb);
++        if (lifecycle != null) {
++            lifecycle.addObserver(adb);
++        }
+         controllers.add(new AdbRootPreferenceController(context, fragment));
+         controllers.add(new WirelessAdbPreferenceController(context, fragment));
+         controllers.add(new ClearAdbKeysPreferenceController(context, fragment));

@@ -10,8 +10,8 @@ usage() {
 Usage: ./scripts/setup.sh --workdir /absolute/android-work [--lineage-version 16.0|17.1] [--jobs N] [--no-sync]
 
 Initializes the selected pinned LineageOS manifest and installs its fixed c5lte
-local manifest. By default it synchronizes sources and writes a resolved
-manifest under manifests/locked/.
+local manifest. Project revisions come from manifests/locked/. By default it
+synchronizes sources and saves the observed revisions alongside the sync log.
 EOF
 }
 
@@ -112,12 +112,34 @@ repo init \
 mkdir -p .repo/local_manifests
 install -m 0644 "$local_manifest_source" .repo/local_manifests/c5lte.xml
 
+python3 - "$locked_manifest" .repo/local_manifests/release-revisions.xml <<'PYTHON'
+import re
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+overlay = ET.Element("manifest")
+for project in ET.parse(sys.argv[1]).getroot().findall("project"):
+    name = project.attrib["name"]
+    revision = project.attrib["revision"]
+    if not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise SystemExit(f"Unpinned project: {name}")
+    attrs = {"name": name, "path": project.get("path", name), "revision": revision}
+    if "upstream" in project.attrib:
+        attrs["upstream"] = project.attrib["upstream"]
+    ET.SubElement(overlay, "extend-project", attrs)
+output = Path(sys.argv[2])
+temporary = output.with_suffix(".tmp")
+ET.ElementTree(overlay).write(temporary, encoding="utf-8", xml_declaration=True)
+temporary.replace(output)
+PYTHON
+
 if [[ "$do_sync" == false ]]; then
   echo "Initialized without syncing: $workdir"
   exit 0
 fi
 
-mkdir -p "${project_dir}/logs" "${project_dir}/manifests/locked"
+mkdir -p "${project_dir}/logs"
 log_file="${project_dir}/logs/repo-sync-lineage-${log_version}-$(date -u +%Y%m%dT%H%M%SZ).log"
 echo "Writing sync log to $log_file"
 repo sync \
@@ -138,7 +160,8 @@ repo forall external/chromium-webview/prebuilt/arm64 -c 'git lfs pull'
 
 "${project_dir}/scripts/apply-patches.sh" --workdir "$workdir" --lineage-version "$lineage_version"
 
-repo manifest -r -o "$locked_manifest"
+resolved_manifest="${log_file%.log}.xml"
+repo manifest -r -o "$resolved_manifest"
 
 echo "Source sync complete: $workdir"
-echo "Resolved manifest: $locked_manifest"
+echo "Resolved manifest: $resolved_manifest"

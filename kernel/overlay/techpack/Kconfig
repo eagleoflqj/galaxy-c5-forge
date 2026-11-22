@@ -1,0 +1,39 @@
+menu "Tech packages"
+
+config C5_AUDIO
+	bool "C5 MSM8952/RT5659 native audio"
+	depends on ARCH_MSM8952 && SND_SOC && I2C && MSM_SMD
+	select SLIMBUS
+	help
+	  Build the C5 board/codec driver and native APR/QDSP6 transport.
+	  This is independent of newer-SoC audio auto-configuration files.
+
+config TECHPACK_AUDIO_DISABLE
+	bool "Disable compilation for audio module"
+	default n
+	help
+	  Say Y here to disable compilation for audio module.
+	  Sometimes useful for reducing kernel binary size.
+
+source "techpack/camera-legacy/Kconfig"
+source "techpack/camera-legacy-m/Kconfig"
+source "techpack/xiaomi-msm8937/Kconfig"
+source "techpack/xiaomi-sdm439/Kconfig"
+
+endmenu
+
+config C5_CAMERA
+	bool "Samsung C5 legacy camera compatibility"
+	depends on MSMB_CAMERA && !MSMB_CAMERA_ENABLE
+	select VIDEOBUF2_CORE
+
+config MSM_FRONT_EEPROM
+	bool
+	default y if C5_CAMERA
+
+config C5_VIDC
+	bool "Samsung C5 frozen codec compatibility"
+	depends on VIDEO_V4L2 && !MSM_VIDC_V4L2 && !MSM_VIDC_3X_V4L2 && ARM64_DMA_USE_IOMMU && IOMMU_API && ION
+	select VIDEOBUF2_CORE
+
+source "techpack/c5-peripherals/Kconfig"

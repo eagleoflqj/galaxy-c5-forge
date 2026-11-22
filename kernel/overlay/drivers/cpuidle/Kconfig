@@ -1,0 +1,60 @@
+menu "CPU Idle"
+
+config CPU_IDLE
+	bool "CPU idle PM support"
+	default y if ACPI || PPC_PSERIES
+	select CPU_IDLE_GOV_LADDER if (!NO_HZ && !NO_HZ_IDLE)
+	select CPU_IDLE_GOV_MENU if (NO_HZ || NO_HZ_IDLE)
+	help
+	  CPU idle is a generic framework for supporting software-controlled
+	  idle processor power management.  It includes modular cross-platform
+	  governors that can be swapped during runtime.
+
+	  If you're using an ACPI-enabled platform, you should say Y here.
+
+if CPU_IDLE
+
+config CPU_IDLE_MULTIPLE_DRIVERS
+        bool
+
+config CPU_IDLE_GOV_LADDER
+	bool "Ladder governor (for periodic timer tick)"
+
+config CPU_IDLE_GOV_MENU
+	bool "Menu governor (for tickless system)"
+
+config DT_IDLE_STATES
+	bool
+
+menu "ARM CPU Idle Drivers"
+depends on ARM || ARM64
+source "drivers/cpuidle/Kconfig.arm"
+endmenu
+
+menu "MIPS CPU Idle Drivers"
+depends on MIPS
+source "drivers/cpuidle/Kconfig.mips"
+endmenu
+
+menu "POWERPC CPU Idle Drivers"
+depends on PPC
+source "drivers/cpuidle/Kconfig.powerpc"
+endmenu
+
+endif
+
+config ARCH_NEEDS_CPU_IDLE_COUPLED
+	def_bool n
+endmenu
+
+config C5_PM_SUSPEND_DIAGNOSTICS
+ bool "C5 automatic suspend diagnostic callers"
+ depends on ARM64 && !CPU_BIG_ENDIAN && ARCH_MSM8952 && !MODULES
+ depends on CPU_IDLE && MSM_PM && PM_SLEEP && SYSFS
+ depends on C5_PM_REGULATOR_DUMP && C5_PM_GPIO_DEBUG
+ depends on C5_PM_QPNP_CACHE_DUMP && C5_PM_RPM_MASTER_PRINT
+ default n
+ help
+   Restore automatic MEM suspend diagnostic callers for existing native
+   providers. The GPIO/QPNP switch defaults to zero; RPM retains its
+   per-printer exact-one enable gate. FREEZE callbacks remain unchanged.

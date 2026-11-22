@@ -1,10 +1,9 @@
-# Repository instructions
+# Galaxy C5 Forge
 
-Read `galaxy-c5-forge-codex-plan.md` before making changes. Treat it as the project's execution and safety policy.
+Keep the Android source checkout, proprietary inputs, partition images, device backups and signing material outside this repository. Preserve upstream source notices.
 
-- Work from evidence. Do not present guessed device parameters, successful builds, or hardware behavior as verified facts.
-- Preserve user changes and keep the Android source checkout outside this orchestration repository.
-- Do not flash, unlock, repartition, erase, or modify device data without explicit operation-specific authorization.
-- Record exact source revisions, input and output hashes, commands, and logs.
-- Update `docs/status.md` at the end of every work session.
-- Keep firmware, proprietary blobs, build outputs, device backups, credentials, and signing keys out of Git.
+Pin the exact input revisions and file hashes. Check the selected source, compiled component and installed payload before changing behavior. Reuse applicable evidence and distinguish source review, host tests, image verification and physical observations.
+
+Use a disk-backed directory for full builds. Preserve the original checkout and the recovery path. Device actions require a designated target and a separately established scope. Keep device-specific operational records private.
+
+Write project documentation in English. Keep the README focused on the user. The kernel and SYSTEM notes describe their respective build inputs and validation limits.
