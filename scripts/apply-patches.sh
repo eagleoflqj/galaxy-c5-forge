@@ -6,7 +6,7 @@ readonly project_dir
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/apply-patches.sh --workdir /absolute/android-work [--lineage-version 16.0|17.1]
+Usage: ./scripts/apply-patches.sh --workdir /absolute/android-work [--lineage-version 16.0|17.1|18.1]
 
 Applies the tracked c5lte source patches idempotently to the pinned Android
 worktree. It fails if a patch matches neither the forward nor reverse state.
@@ -52,14 +52,71 @@ if [[ -z "$lineage_version" ]]; then
     c7b3d4b65b79e2e0d6a891547ad138e1fcdafb56)
       lineage_version=17.1
       ;;
+    75e412bbb78aa0009405f696d0d3775e995e64ca)
+      lineage_version=18.1
+      ;;
     *)
       echo "Cannot infer the LineageOS version from manifest revision: $manifest_revision" >&2
       exit 2
       ;;
   esac
 fi
+if [[ "$lineage_version" == 18.1 ]]; then
+  patch_root="$project_dir/patches"
+  device=device/samsung/c5lte
+  audio=hardware/qcom-caf/msm8952/audio
+
+  apply_source_patch() {
+    local source="$workdir/$2" patch="$patch_root/$1/$2/$3"
+    shift 3
+    if ! git -C "$source" apply --reverse --check "$@" "$patch" 2>/dev/null; then
+      git -C "$source" apply --check "$@" "$patch"
+      git -C "$source" apply "$@" "$patch"
+    fi
+  }
+
+  install_source() {
+    local source="$patch_root/$1" destination="$workdir/$2"
+    if [[ -e "$destination" || -L "$destination" ]]; then
+      cmp "$source" "$destination"
+    else
+      install -Dm644 "$source" "$destination"
+    fi
+  }
+
+  # These local inputs are prepared separately from the platform manifest.
+  if [[ -d "$workdir/kernel/samsung/c5lte" ]]; then
+    apply_source_patch lineage-18.1 kernel/samsung/c5lte export-c5-kernel-headers.patch
+  fi
+  if [[ -d "$workdir/vendor/samsung/c5lte" ]]; then
+    apply_source_patch lineage-18.1 vendor/samsung/c5lte adapt-vendor-build-definitions.patch
+  fi
+  apply_source_patch lineage-18.1 "$device" port-c5lte-to-android-11.patch
+  apply_source_patch shared "$device" 0003-use-csa1-stock-gnss-stack.patch '--include=libshims/gnss_hidl/*'
+  install_source shared/device/samsung/c5lte/lights/Android.mk "$device/lights/Android.mk"
+  install_source shared/device/samsung/c5lte/lights/lights.c "$device/lights/lights.c"
+  install_source shared/device/samsung/c5lte/rootdir/etc/init.c5.zram.rc "$device/rootdir/etc/init.c5.zram.rc"
+  apply_source_patch lineage-18.1 hardware/samsung include-fingerprint-module.patch
+  apply_source_patch shared hardware/samsung 0001-restore-bauth-fingerprint-hal.patch --exclude=Android.mk
+  apply_source_patch lineage-18.1 bootable/recovery preserve-installed-recovery.patch
+  apply_source_patch lineage-18.1 hardware/interfaces preserve-bluetooth-service-groups.patch
+  apply_source_patch lineage-18.1 system/core restore-legacy-logmessage-constructor.patch
+  apply_source_patch lineage-18.1 system/libhidl avoid-runtime-hal-startup-delays.patch
+  apply_source_patch lineage-18.1 frameworks/av resolve-audio-policy-before-create-effect.patch
+  apply_source_patch lineage-18.1 frameworks/base restore-system-user-type.patch
+  apply_source_patch shared frameworks/base 0001-handle-null-fingerprint-error-text-in-keyguard.patch
+  apply_source_patch shared packages/apps/Snap 0001-stop-preview-before-hdr-reconfiguration.patch
+  apply_source_patch shared packages/apps/Settings 0001-refresh-usb-debugging-switch-on-setting-change.patch --include=src/com/android/settings/development/AdbPreferenceController.java
+  apply_source_patch lineage-18.1 packages/apps/Settings register-adb-preference-observer.patch
+  apply_source_patch lineage-18.1 vendor/lineage generate-kernel-headers-for-each-abi.patch
+  apply_source_patch lineage-18.1 hardware/qcom-caf/msm8952/media use-c5-video-kernel-headers.patch
+  apply_source_patch shared "$audio" 0001-route-concrete-bluetooth-sco-devices.patch
+  apply_source_patch shared "$audio" card-discovery/card-discovery.patch
+  install_source shared/hardware/qcom-caf/msm8952/audio/card-discovery/c5-snd-card-discovery.inc "$audio/hal/audio_extn/c5-snd-card-discovery.inc"
+  exit 0
+fi
 if [[ "$lineage_version" != 16.0 && "$lineage_version" != 17.1 ]]; then
-  echo "--lineage-version must be 16.0 or 17.1" >&2
+  echo "--lineage-version must be 16.0, 17.1 or 18.1" >&2
   exit 2
 fi
 

@@ -1,0 +1,105 @@
+Private vendor makefile provenance: https://github.com/vm03/android_device_samsung_c5lte/issues/1
+
+diff --git a/Android.bp b/Android.bp
+index b7553ab..4ec8860 100644
+--- a/Android.bp
++++ b/Android.bp
+@@ -22,6 +22,7 @@ soong_namespace {
+ cc_prebuilt_library_shared {
+ 	name: "libantradio",
+ 	owner: "samsung",
++	shared_libs: ["libnativehelper", "libcutils", "liblog"],
+ 	strip: {
+ 		none: true,
+ 	},
+@@ -37,54 +38,10 @@ cc_prebuilt_library_shared {
+ 	prefer: true,
+ }
+ 
+-cc_prebuilt_library_shared {
+-	name: "libtfa98xx",
+-	owner: "samsung",
+-	strip: {
+-		none: true,
+-	},
+-	target: {
+-		android_arm: {
+-			srcs: ["proprietary/lib/libtfa98xx.so"],
+-		},
+-	},
+-	compile_multilib: "32",
+-	prefer: true,
+-}
+-
+-cc_prebuilt_library_shared {
+-	name: "libloc_api_v02",
+-	owner: "samsung",
+-	strip: {
+-		none: true,
+-	},
+-	target: {
+-		android_arm64: {
+-			srcs: ["proprietary/lib64/libloc_api_v02.so"],
+-		},
+-	},
+-	compile_multilib: "64",
+-	prefer: true,
+-}
+-
+-cc_prebuilt_library_shared {
+-	name: "libloc_ds_api",
+-	owner: "samsung",
+-	strip: {
+-		none: true,
+-	},
+-	target: {
+-		android_arm64: {
+-			srcs: ["proprietary/lib64/libloc_ds_api.so"],
+-		},
+-	},
+-	compile_multilib: "64",
+-	prefer: true,
+-}
+-
+ cc_prebuilt_library_shared {
+ 	name: "libtime_genoff",
+ 	owner: "samsung",
++	shared_libs: ["libcutils", "liblog"],
+ 	strip: {
+ 		none: true,
+ 	},
+diff --git a/Android.mk b/Android.mk
+index b2d4314..0edee3c 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -18,4 +18,17 @@ LOCAL_PATH := $(call my-dir)
+ 
+ ifeq ($(TARGET_DEVICE),c5lte)
+ 
++# The CSA1 amplifier imports ARM symbols versioned LIBC_PRIVATE. Check them
++# against the runtime libc that supplies them on the phone.
++include $(CLEAR_VARS)
++LOCAL_MODULE := libtfa98xx
++LOCAL_MODULE_OWNER := samsung
++LOCAL_MODULE_CLASS := SHARED_LIBRARIES
++LOCAL_MODULE_SUFFIX := .so
++LOCAL_MULTILIB := 32
++LOCAL_SRC_FILES := proprietary/lib/libtfa98xx.so
++LOCAL_STRIP_MODULE := false
++LOCAL_SHARED_LIBRARIES := libcutils libutils liblog libc++ libc.com.android.runtime libdl libm
++include $(BUILD_PREBUILT)
++
+ endif
+diff --git a/c5lte-vendor.mk b/c5lte-vendor.mk
+index 8ee3637..cced3b9 100644
+--- a/c5lte-vendor.mk
++++ b/c5lte-vendor.mk
+@@ -604,8 +604,6 @@ PRODUCT_COPY_FILES += \
+ PRODUCT_PACKAGES += \
+     libantradio \
+     libtfa98xx \
+-    libloc_api_v02 \
+-    libloc_ds_api \
+     libtime_genoff \
+     shutdownlistener \
+     qcrilmsgtunnel \

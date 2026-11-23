@@ -1,0 +1,21 @@
+diff --git a/services/audioflinger/AudioFlinger.cpp b/services/audioflinger/AudioFlinger.cpp
+index 764fdc3..1b0551e 100644
+--- a/services/audioflinger/AudioFlinger.cpp
++++ b/services/audioflinger/AudioFlinger.cpp
+@@ -66,6 +66,7 @@
+ 
+ #include <powermanager/PowerManager.h>
+ 
++#include <media/IAudioPolicyService.h>
+ #include <media/IMediaLogService.h>
+ #include <media/nbaio/Pipe.h>
+ #include <media/nbaio/PipeReader.h>
+@@ -3549,6 +3550,8 @@ sp<IEffect> AudioFlinger::createEffect(
+             ALOGV("createEffect got output %d", io);
+         }
+ 
++        // EffectChain queries audio policy. Its initialization can call back into AudioFlinger.
++        (void)AudioSystem::get_audio_policy_service();
+         Mutex::Autolock _l(mLock);
+ 
+         if (sessionId == AUDIO_SESSION_DEVICE) {

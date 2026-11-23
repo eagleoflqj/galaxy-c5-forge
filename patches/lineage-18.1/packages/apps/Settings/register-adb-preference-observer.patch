@@ -1,0 +1,17 @@
+diff --git a/src/com/android/settings/development/DevelopmentSettingsDashboardFragment.java b/src/com/android/settings/development/DevelopmentSettingsDashboardFragment.java
+index c32674f..2c9267e 100644
+--- a/src/com/android/settings/development/DevelopmentSettingsDashboardFragment.java
++++ b/src/com/android/settings/development/DevelopmentSettingsDashboardFragment.java
+@@ -489,7 +489,11 @@ public class DevelopmentSettingsDashboardFragment extends RestrictedDashboardFra
+         controllers.add(new CoolColorTemperaturePreferenceController(context));
+         controllers.add(new DisableAutomaticUpdatesPreferenceController(context));
+         controllers.add(new SelectDSUPreferenceController(context));
+-        controllers.add(new AdbPreferenceController(context, fragment));
++        final AdbPreferenceController adb = new AdbPreferenceController(context, fragment);
++        controllers.add(adb);
++        if (lifecycle != null) {
++            lifecycle.addObserver(adb);
++        }
+         controllers.add(new AdbRootPreferenceController(context, fragment));
+         controllers.add(new ClearAdbKeysPreferenceController(context, fragment));
+         controllers.add(new WirelessDebuggingPreferenceController(context, lifecycle));

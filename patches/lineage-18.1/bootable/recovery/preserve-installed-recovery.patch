@@ -1,0 +1,17 @@
+Keep the independently managed C5 recovery across Android upgrades.
+Upstream packaging reference: https://issuetracker.google.com/issues/141648565
+
+diff --git a/applypatch/Android.bp b/applypatch/Android.bp
+index 13a9625..ef86927 100644
+--- a/applypatch/Android.bp
++++ b/applypatch/Android.bp
+@@ -124,9 +124,6 @@ cc_binary {
+         "libziparchive",
+     ],
+ 
+-    init_rc: [
+-        "vendor_flash_recovery.rc",
+-    ],
+ }
+ 
+ cc_library_host_static {

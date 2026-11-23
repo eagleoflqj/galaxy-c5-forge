@@ -1,0 +1,29 @@
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index 6dca52c..c6c5bb1 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -34,6 +34,6 @@ no-export-headers += tee.h
+ no-export-headers += userio.h
+ no-export-headers += wil6210_uapi.h
+ 
+-ifneq ($(VSERVICES_SUPPORT), "")
+-include include/linux/Kbuild.vservices
++ifdef VSERVICES_SUPPORT
++  include $(srctree)/include/linux/Kbuild.vservices
+ endif
+diff --git a/techpack/c5-vidc/c5-vidc-api.h b/techpack/c5-vidc/c5-vidc-api.h
+index f95fb85..8cdf912 100644
+--- a/techpack/c5-vidc/c5-vidc-api.h
++++ b/techpack/c5-vidc/c5-vidc-api.h
+@@ -1,7 +1,11 @@
+ /* C5-local frozen private constants and native buffer storage. */
+ #ifndef C5_VIDC_API_H
+ #define C5_VIDC_API_H
++#ifdef __KERNEL__
+ #include "c5-vidc-vb2-compat.h"
++#else
++#include <linux/videodev2.h>
++#endif
+ #undef V4L2_QCOM_BUF_FLAG_CODECCONFIG
+ #define V4L2_QCOM_BUF_FLAG_CODECCONFIG		0x10000
+ #undef V4L2_QCOM_BUF_FLAG_EOSEQ

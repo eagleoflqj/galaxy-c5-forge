@@ -26,3 +26,24 @@ To prepare the full BOOT on the host, supply the LineageOS 17.1 mkbootimg execut
 ```sh
 ./scripts/package-boot.sh "$MKBOOTIMG" "$REFERENCE_FULL_BOOT" "$OUTPUT/build/arch/arm64/boot/Image.gz" "$OUTPUT/lineage-17.1-20261121-c5lte-boot.img"
 ```
+
+## Reusing the kernel and Rev09 device tree on Android 11
+
+The published 17.1 BOOT contains one Samsung Rev09 entry in its QCDT v2 table. Its device tree provides the first-stage ext4 mount for SYSTEM on the internal eMMC. The 18.1 build can use the rebuilt kernel and this table with a ramdisk generated from Android 11. The offset below applies to the published BOOT with the specified digest. The older private repacking template has a different layout.
+
+Set `REFERENCE_BOOT` to the published November 21 BOOT, `OUTPUT` to the completed kernel build directory, and `BOOT_INPUTS` to a new directory on the build disk. Run the following commands with Bash.
+
+```sh
+(
+    set -eu
+    echo "f7f70aa7ed89516a6698a26a4bb8dc5adb28d78f76dfc343e0bf6381e3f92357  $REFERENCE_BOOT" | sha256sum -c -
+    mkdir -- "$BOOT_INPUTS"
+    cp -- "$OUTPUT/build/arch/arm64/boot/Image.gz" "$BOOT_INPUTS/Image.gz"
+    dd if="$REFERENCE_BOOT" of="$BOOT_INPUTS/dt.img" bs=1M iflag=skip_bytes,count_bytes skip=11460608 count=244920 status=none
+    cd -- "$BOOT_INPUTS"
+    sha256sum -c - <<'EOF'
+eaead9f9166a04e28b84d0cf8beef54661b99a34422a14d596d989050fdff347  Image.gz
+f1d856f49b89eac54aaa0f5ca69091112297913e5611372c8affbc7d3168ee96  dt.img
+EOF
+)
+```

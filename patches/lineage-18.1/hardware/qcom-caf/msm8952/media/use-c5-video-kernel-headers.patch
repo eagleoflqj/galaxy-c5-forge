@@ -1,0 +1,82 @@
+diff --git a/mm-video-v4l2/vidc/vdec/Android.mk b/mm-video-v4l2/vidc/vdec/Android.mk
+index a788edb..d9d2b95 100644
+--- a/mm-video-v4l2/vidc/vdec/Android.mk
++++ b/mm-video-v4l2/vidc/vdec/Android.mk
+@@ -60,6 +60,11 @@ include $(CLEAR_VARS)
+ 
+ # Common Includes
+ libmm-vdec-inc          := $(LOCAL_PATH)/inc
++
++ifeq ($(TARGET_DEVICE),c5lte)
++libmm-vdec-inc += $(TARGET_KERNEL_SOURCE)/techpack/c5-vidc/include/uapi $(TARGET_KERNEL_SOURCE)/techpack/c5-vidc/include
++libmm-vdec-def += -include $(TARGET_KERNEL_SOURCE)/techpack/c5-vidc/c5-vidc-api.h
++endif
+ libmm-vdec-inc          += $(OMX_VIDEO_PATH)/vidc/common/inc
+ libmm-vdec-inc          += $(TOP)/$(call project-path-for,qcom-media)/mm-core/inc
+ libmm-vdec-inc          += $(TARGET_OUT_HEADERS)/adreno
+diff --git a/mm-video-v4l2/vidc/vdec/inc/omx_vdec.h b/mm-video-v4l2/vidc/vdec/inc/omx_vdec.h
+index 254d59a..66084b5 100644
+--- a/mm-video-v4l2/vidc/vdec/inc/omx_vdec.h
++++ b/mm-video-v4l2/vidc/vdec/inc/omx_vdec.h
+@@ -103,7 +103,9 @@ extern "C" {
+ #ifdef MAX_RES_1080P
+ #include "mp4_utils.h"
+ #endif
++#ifndef USE_ION
+ #include <linux/android_pmem.h>
++#endif
+ #include "extra_data_handler.h"
+ #include "ts_parser.h"
+ #include "vidc_color_converter.h"
+diff --git a/mm-video-v4l2/vidc/venc/Android.mk b/mm-video-v4l2/vidc/venc/Android.mk
+index 1706369..b6d1b4b 100644
+--- a/mm-video-v4l2/vidc/venc/Android.mk
++++ b/mm-video-v4l2/vidc/venc/Android.mk
+@@ -55,6 +55,11 @@ endif
+ 
+ # Common Includes
+ libmm-venc-inc      := $(LOCAL_PATH)/inc
++
++ifeq ($(TARGET_DEVICE),c5lte)
++libmm-venc-inc += $(TARGET_KERNEL_SOURCE)/techpack/c5-vidc/include/uapi $(TARGET_KERNEL_SOURCE)/techpack/c5-vidc/include
++libmm-venc-def += -include $(TARGET_KERNEL_SOURCE)/techpack/c5-vidc/c5-vidc-api.h
++endif
+ libmm-venc-inc      += $(OMX_VIDEO_PATH)/vidc/common/inc
+ libmm-venc-inc      += $(call project-path-for,qcom-media)/mm-core/inc
+ libmm-venc-inc      += $(call project-path-for,qcom-media)/libstagefrighthw
+diff --git a/mm-video-v4l2/vidc/venc/src/omx_video_encoder.cpp b/mm-video-v4l2/vidc/venc/src/omx_video_encoder.cpp
+index 4817003..67ba079 100644
+--- a/mm-video-v4l2/vidc/venc/src/omx_video_encoder.cpp
++++ b/mm-video-v4l2/vidc/venc/src/omx_video_encoder.cpp
+@@ -2382,7 +2382,7 @@ int omx_venc::async_message_process (void *context, void* message)
+             omx->post_event (0,m_sVenc_msg->statuscode,\
+                     OMX_COMPONENT_GENERATE_EVENT_INPUT_FLUSH);
+             break;
+-        case VEN_MSG_FLUSH_OUPUT_DONE:
++        case VEN_MSG_FLUSH_OUTPUT_DONE:
+             omx->post_event (0,m_sVenc_msg->statuscode,\
+                     OMX_COMPONENT_GENERATE_EVENT_OUTPUT_FLUSH);
+             break;
+diff --git a/mm-video-v4l2/vidc/venc/src/video_encoder_device_v4l2.cpp b/mm-video-v4l2/vidc/venc/src/video_encoder_device_v4l2.cpp
+index d42e5c2..e30228b 100644
+--- a/mm-video-v4l2/vidc/venc/src/video_encoder_device_v4l2.cpp
++++ b/mm-video-v4l2/vidc/venc/src/video_encoder_device_v4l2.cpp
+@@ -33,7 +33,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #include <fcntl.h>
+ #include "video_encoder_device_v4l2.h"
+ #include "omx_video_encoder.h"
++#ifndef USE_ION
+ #include <linux/android_pmem.h>
++#endif
+ #include <media/msm_vidc.h>
+ #ifdef USE_ION
+ #include <linux/msm_ion.h>
+@@ -455,7 +457,7 @@ void* venc_dev::async_venc_message_thread (void *input)
+                     break;
+                 }
+ 
+-                venc_msg.msgcode = VEN_MSG_FLUSH_OUPUT_DONE;
++                venc_msg.msgcode = VEN_MSG_FLUSH_OUTPUT_DONE;
+                 venc_msg.statuscode = VEN_S_SUCCESS;
+ 
+                 if (omx->async_message_process(input,&venc_msg) < 0) {

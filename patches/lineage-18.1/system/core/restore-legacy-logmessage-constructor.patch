@@ -1,0 +1,28 @@
+diff --git a/base/include/android-base/logging.h b/base/include/android-base/logging.h
+index 26827fb..5f04f17 100644
+--- a/base/include/android-base/logging.h
++++ b/base/include/android-base/logging.h
+@@ -416,6 +416,9 @@ class LogMessage {
+  private:
+   const std::unique_ptr<LogMessageData> data_;
+ 
++  // Android 8 vendor binaries predate the optional log tag.
++  LogMessage(const char* file, unsigned int line, LogId, LogSeverity severity, int error);
++
+   DISALLOW_COPY_AND_ASSIGN(LogMessage);
+ };
+ 
+diff --git a/base/logging.cpp b/base/logging.cpp
+index 5bd21da..634cc64 100644
+--- a/base/logging.cpp
++++ b/base/logging.cpp
+@@ -475,6 +475,9 @@ LogMessage::LogMessage(const char* file, unsigned int line, LogId, LogSeverity s
+                        const char* tag, int error)
+     : LogMessage(file, line, severity, tag, error) {}
+ 
++LogMessage::LogMessage(const char* file, unsigned int line, LogId, LogSeverity severity, int error)
++    : LogMessage(file, line, severity, nullptr, error) {}
++
+ LogMessage::LogMessage(const char* file, unsigned int line, LogSeverity severity, const char* tag,
+                        int error)
+     : data_(new LogMessageData(file, line, severity, tag, error)) {}

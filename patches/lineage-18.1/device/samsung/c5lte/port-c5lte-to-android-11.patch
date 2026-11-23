@@ -1,0 +1,1139 @@
+Upstream device source and kernel context: https://github.com/vm03/android_device_samsung_c5lte/issues/2
+
+diff --git a/Android.mk b/Android.mk
+index 4e07075..98ea1c6 100644
+--- a/Android.mk
++++ b/Android.mk
+@@ -27,14 +27,15 @@ LOCAL_PATH := $(call my-dir)
+ 
+ ifneq ($(filter c5lte, $(TARGET_DEVICE)),)
+ 
+-include $(call all-makefiles-under,$(LOCAL_PATH))
++# The installed CSA1 GNSS service uses its matching vendor location stack.
++include $(filter-out $(LOCAL_PATH)/gps/Android.mk,$(call all-makefiles-under,$(LOCAL_PATH)))
+ 
+ include $(CLEAR_VARS)
+ 
+ ADSP_IMAGES := \
+ 	adsp.b00 adsp.b01 adsp.b02 adsp.b03 adsp.b04 adsp.b05 adsp.b06 \
+ 	adsp.b07 adsp.b08 adsp.b09 adsp.b10 adsp.b11 adsp.b12 adsp.b13 \
+-	adsp.b14 adsp.mbn adsp.mdt
++	adsp.b14 adsp.b15 adsp.mbn adsp.mdt
+     
+ ADSP_SYMLINKS := $(addprefix $(TARGET_OUT_ETC)/firmware/,$(notdir $(ADSP_IMAGES)))
+ $(ADSP_SYMLINKS): $(LOCAL_INSTALLED_MODULE)
+diff --git a/board/kernel.mk b/board/kernel.mk
+index c533a8f..4bae371 100644
+--- a/board/kernel.mk
++++ b/board/kernel.mk
+@@ -1,18 +1,22 @@
+-BOARD_DTBTOOL_ARGS := -2
+-
+ BOARD_KERNEL_BASE := 0x80000000
+-BOARD_KERNEL_CMDLINE := console=null androidboot.hardware=qcom user_debug=30 msm_rtb.filter=0x237 ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1
++BOARD_KERNEL_CMDLINE := console=null androidboot.hardware=qcom user_debug=30 msm_rtb.filter=0x237 ehci-hcd.park=3 androidboot.bootdevice=7824900.sdhci lpm_levels.sleep_disabled=1 androidboot.init_fatal_reboot_target=recovery suspend.c5_trial_mode=9
+ BOARD_KERNEL_PAGESIZE := 2048
+ BOARD_KERNEL_TAGS_OFFSET := 0x01e00000
+ BOARD_RAMDISK_OFFSET := 0x02000000
++BOARD_MKBOOTIMG_ARGS += \
++    --ramdisk_offset $(BOARD_RAMDISK_OFFSET) \
++    --tags_offset $(BOARD_KERNEL_TAGS_OFFSET)
++
+ BOARD_KERNEL_SEPARATED_DT := true
++BOARD_KERNEL_PREBUILT_DT := true
+ BOARD_KERNEL_IMAGE_NAME := Image.gz
+ 
+ ENABLE_CPUSETS := true
+ 
+ TARGET_KERNEL_SOURCE := kernel/samsung/c5lte
+-TARGET_KERNEL_CONFIG := c5lte_defconfig
+-#TARGET_KERNEL_CROSS_COMPILE_PREFIX := $(PWD)/prebuilts/gcc/linux-x86/arm/arm-linux-androideabi-4.9/bin/arm-linux-androideabi-
++TARGET_KERNEL_CONFIG := c5lte_android_stage1_defconfig
++TARGET_PREBUILT_KERNEL := vendor/samsung/c5lte/boot/Image.gz
++TARGET_FORCE_PREBUILT_KERNEL := true
+ 
+ BOARD_CUSTOM_BOOTIMG := true
+ BOARD_CUSTOM_BOOTIMG_MK := hardware/samsung/mkbootimg.mk
+diff --git a/board/lights.mk b/board/lights.mk
+index 7fc13bd..fe02d0f 100644
+--- a/board/lights.mk
++++ b/board/lights.mk
+@@ -1,2 +1,2 @@
+ # Lights
+-TARGET_PROVIDES_LIBLIGHT := false
++TARGET_PROVIDES_LIBLIGHT := true
+diff --git a/board/qcom-audio.mk b/board/qcom-audio.mk
+index 6f6147f..b939788 100644
+--- a/board/qcom-audio.mk
++++ b/board/qcom-audio.mk
+@@ -27,3 +27,4 @@ BOARD_USES_ALSA_AUDIO := true
+ BOARD_USES_GENERIC_AUDIO := true
+ TARGET_USES_QCOM_MM_AUDIO := true
+ USE_CUSTOM_AUDIO_POLICY := 1
++USE_XML_AUDIO_POLICY_CONF := 1
+diff --git a/board/shim.mk b/board/shim.mk
+index 271d5bd..dd1360b 100644
+--- a/board/shim.mk
++++ b/board/shim.mk
+@@ -1,6 +1,8 @@
+ # Shims
+ TARGET_LD_SHIM_LIBS := \
+     /system/lib/libcamera_client.so|libshims_camera.so \
++    /system/vendor/lib64/libril-qc-qmi-1.so|libshims_ril_audio.so \
+     /system/vendor/lib64/libflp.so|libshims_flp.so \
+     /system/vendor/lib64/libizat_core.so|libshims_get_process_name.so \
+-    /system/vendor/lib/libflp.so|libshims_flp.so
++    /system/vendor/lib/libflp.so|libshims_flp.so \
++    /system/vendor/lib/vendor.qti.gnss@1.0_vendor.so|libshims_gnss_hidl.so
+diff --git a/board-info.txt b/board-info.txt
+index 8bc81db..3c3cd39 100644
+--- a/board-info.txt
++++ b/board-info.txt
+@@ -1 +1 @@
+-require version-bootloader=C5000ZHU1CRJ5
++require version-bootloader=C5000ZHU1CRJ5|C5000ZCU1CSA1
+diff --git a/configs/sec_config b/configs/sec_config
+index 7338454..399c1c5 100644
+--- a/configs/sec_config
++++ b/configs/sec_config
+@@ -320,3 +320,5 @@
+ 69:4294967295:1000
+ /* <WLPS QMI Service ID - 0x39>:<WLFW QMI Instance ID - all instances>:<Client Group ID> */
+ 57:4294967295:1000
++/* VSS GPS */
++232:4294967295:1001:3004:1021:1000
+diff --git a/libshims/Android.mk b/libshims/Android.mk
+index 2892d89..21e3248 100644
+--- a/libshims/Android.mk
++++ b/libshims/Android.mk
+@@ -27,6 +27,17 @@ include $(BUILD_SHARED_LIBRARY)
+ 
+ include $(CLEAR_VARS)
+ 
++LOCAL_SRC_FILES := \
++    gnss_hidl/gnss_hidl.cpp
++
++LOCAL_MODULE := libshims_gnss_hidl
++LOCAL_MODULE_TAGS := optional
++LOCAL_MULTILIB := 32
++
++include $(BUILD_SHARED_LIBRARY)
++
++include $(CLEAR_VARS)
++
+ LOCAL_SRC_FILES := \
+     get_process_name/get_process_name.c
+ 
+@@ -34,3 +45,10 @@ LOCAL_MODULE := libshims_get_process_name
+ LOCAL_MODULE_TAGS := optional
+ 
+ include $(BUILD_SHARED_LIBRARY)
++
++include $(CLEAR_VARS)
++LOCAL_MODULE := libshims_ril_audio
++LOCAL_SRC_FILES := ril_audio.cpp
++LOCAL_MULTILIB := 64
++LOCAL_SHARED_LIBRARIES := libaudioclient
++include $(BUILD_SHARED_LIBRARY)
+diff --git b/libshims/ril_audio.cpp b/libshims/ril_audio.cpp
+new file mode 100644
+index 0000000..b2a154a
+--- /dev/null
++++ b/libshims/ril_audio.cpp
+@@ -0,0 +1,19 @@
++// SPDX-License-Identifier: Apache-2.0
++#include <media/AudioSystem.h>
++
++#include <mutex>
++
++// The CSA1 RIL replaces one callback. Android 11 registers callbacks by handle.
++extern "C" void
++setRilAudioErrorCallback(android::audio_error_callback callback) asm(
++    "_ZN7android11AudioSystem16setErrorCallbackEPFviE");
++
++void setRilAudioErrorCallback(android::audio_error_callback callback) {
++  static std::mutex lock;
++  static uintptr_t handle;
++  const std::lock_guard<std::mutex> guard(lock);
++  if (handle != 0) {
++    android::AudioSystem::removeErrorCallback(handle);
++  }
++  handle = callback ? android::AudioSystem::addErrorCallback(callback) : 0;
++}
+diff --git a/lineage.dependencies b/lineage.dependencies
+index 74b1757..37d61b6 100644
+--- a/lineage.dependencies
++++ b/lineage.dependencies
+@@ -1,8 +1,5 @@
+ [
+   {
+-    "repository": "android_device_qcom_common",
+-    "target_path": "device/qcom/common"
+-  },{
+     "repository": "android_hardware_samsung",
+     "target_path": "hardware/samsung"
+   }
+diff --git a/manifest.xml b/manifest.xml
+index 91f55fa..0dc73a6 100644
+--- a/manifest.xml
++++ b/manifest.xml
+@@ -17,15 +17,6 @@
+             <instance>default</instance>
+         </interface>
+     </hal>
+-    <hal format="hidl">
+-        <name>android.hardware.biometrics.fingerprint</name>
+-        <transport>hwbinder</transport>
+-        <version>2.1</version>
+-        <interface>
+-            <name>IBiometricsFingerprint</name>
+-            <instance>default</instance>
+-        </interface>
+-    </hal>
+     <hal format="hidl">
+         <name>android.hardware.bluetooth</name>
+         <transport>hwbinder</transport>
+@@ -44,15 +35,6 @@
+             <instance>legacy/0</instance>
+         </interface>
+     </hal>
+-    <hal format="hidl">
+-        <name>android.hardware.cas</name>
+-        <transport>hwbinder</transport>
+-        <version>1.0</version>
+-        <interface>
+-            <name>IMediaCasService</name>
+-            <instance>default</instance>
+-        </interface>
+-    </hal>
+     <hal format="hidl">
+         <name>android.hardware.configstore</name>
+         <transport>hwbinder</transport>
+@@ -93,6 +75,15 @@
+             <instance>default</instance>
+         </interface>
+     </hal>
++    <hal format="hidl">
++        <name>vendor.qti.gnss</name>
++        <transport>hwbinder</transport>
++        <version>1.0</version>
++        <interface>
++            <name>ILocHidlGnss</name>
++            <instance>gnss_vendor</instance>
++        </interface>
++    </hal>
+     <hal format="hidl">
+         <name>android.hardware.graphics.allocator</name>
+         <transport>hwbinder</transport>
+@@ -160,15 +151,6 @@
+             <instance>default</instance>
+         </interface>
+     </hal>
+-    <hal format="hidl">
+-        <name>android.hardware.power</name>
+-        <transport>hwbinder</transport>
+-        <version>1.1</version>
+-        <interface>
+-            <name>IPower</name>
+-            <instance>default</instance>
+-        </interface>
+-    </hal>
+     <hal format="hidl">
+         <name>android.hardware.renderscript</name>
+         <transport arch="32+64">passthrough</transport>
+@@ -183,15 +165,6 @@
+             <instance>default</instance>
+         </interface>
+     </hal>
+-    <hal format="hidl">
+-        <name>android.hardware.usb</name>
+-        <transport>hwbinder</transport>
+-        <version>1.0</version>
+-        <interface>
+-            <name>IUsb</name>
+-            <instance>default</instance>
+-        </interface>
+-    </hal>
+     <hal format="hidl">
+         <name>android.hardware.vibrator</name>
+         <transport>hwbinder</transport>
+@@ -201,33 +174,6 @@
+             <instance>default</instance>
+         </interface>
+     </hal>
+-    <hal format="hidl">
+-        <name>android.hardware.wifi</name>
+-        <transport>hwbinder</transport>
+-        <version>1.2</version>
+-        <interface>
+-            <name>IWifi</name>
+-            <instance>default</instance>
+-        </interface>
+-    </hal>
+-    <hal format="hidl">
+-        <name>android.hardware.wifi.hostapd</name>
+-        <transport>hwbinder</transport>
+-        <version>1.0</version>
+-        <interface>
+-            <name>IHostapd</name>
+-            <instance>default</instance>
+-        </interface>
+-    </hal>
+-    <hal format="hidl">
+-        <name>android.hardware.wifi.supplicant</name>
+-        <transport>hwbinder</transport>
+-        <version>1.1</version>
+-        <interface>
+-            <name>ISupplicant</name>
+-            <instance>default</instance>
+-        </interface>
+-    </hal>
+     <hal format="hidl">
+         <name>com.qualcomm.qti.ant</name>
+         <transport>hwbinder</transport>
+@@ -270,15 +216,6 @@
+             <instance>default</instance>
+         </interface>
+     </hal>
+-    <hal format="hidl">
+-        <name>vendor.lineage.power</name>
+-        <transport>hwbinder</transport>
+-        <version>1.0</version>
+-        <interface>
+-            <name>ILineagePower</name>
+-            <instance>default</instance>
+-        </interface>
+-    </hal>
+     <hal format="hidl">
+         <name>android.hardware.nfc</name>
+         <transport>hwbinder</transport>
+diff --git a/overlay/frameworks/base/core/res/res/values/config.xml b/overlay/frameworks/base/core/res/res/values/config.xml
+index 272814a..1d3df03 100644
+--- a/overlay/frameworks/base/core/res/res/values/config.xml
++++ b/overlay/frameworks/base/core/res/res/values/config.xml
+@@ -206,9 +206,7 @@
+     <!-- Vibrator pattern for feedback about a long screen/key press -->
+     <integer-array name="config_longPressVibePattern">
+         <item>0</item>
+-        <item>1</item>
+-        <item>20</item>
+-        <item>21</item>
++        <item>50</item>
+     </integer-array>
+ 
+     <!-- Whether WiFi display is supported by this device.
+diff --git a/overlay/packages/apps/Nfc/res/values/config.xml b/overlay/packages/apps/Nfc/res/values/config.xml
+new file mode 100644
+index 0000000..47abbd3
+--- /dev/null
++++ b/overlay/packages/apps/Nfc/res/values/config.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <bool name="enable_notify_dispatch_failed">true</bool>
++    <bool name="enable_notify_read_failed">true</bool>
++</resources>
+diff --git a/power/Android.mk b/power/Android.mk
+index 10b36cb..ef7c89a 100644
+--- a/power/Android.mk
++++ b/power/Android.mk
+@@ -2,7 +2,7 @@ LOCAL_PATH := $(call my-dir)
+ 
+ include $(CLEAR_VARS)
+ 
+-LOCAL_C_INCLUDES := hardware/qcom/power
++LOCAL_C_INCLUDES := vendor/qcom/opensource/power
+ LOCAL_CFLAGS := -Wall -Werror
+ LOCAL_SHARED_LIBRARIES := liblog
+ LOCAL_HEADER_LIBRARIES += libhardware_headers
+diff --git a/power/power-c5lte.c b/power/power-c5lte.c
+index 37296cc..71eb235 100644
+--- a/power/power-c5lte.c
++++ b/power/power-c5lte.c
+@@ -94,14 +94,13 @@ int get_number_of_profiles()
+ }
+ #endif
+ 
+-static int set_power_profile(void *data)
++void set_power_profile(int profile)
+ {
+-    int profile = data ? *((int*)data) : 0;
+     int ret = -EINVAL;
+     const char *profile_name = NULL;
+ 
+     if (profile == current_power_profile)
+-        return 0;
++        return;
+ 
+     ALOGV("%s: Profile=%d", __func__, profile);
+ 
+@@ -138,8 +137,9 @@ static int set_power_profile(void *data)
+     if (ret == 0) {
+         current_power_profile = profile;
+         ALOGD("%s: Set %s mode", __func__, profile_name);
++    } else {
++        ALOGE("Setting power profile failed. perf HAL not started?");
+     }
+-    return ret;
+ }
+ 
+ typedef enum {
+@@ -349,12 +349,6 @@ int power_hint_override(power_hint_t hint, void *data)
+ {
+     int ret_val = HINT_NONE;
+ 
+-    if (hint == POWER_HINT_SET_PROFILE) {
+-        if (set_power_profile(data) < 0)
+-            ALOGE("Setting power profile failed. perf HAL not started?");
+-        return HINT_HANDLED;
+-    }
+-
+     // Skip other hints in high/low power modes
+     if (current_power_profile == PROFILE_POWER_SAVE ||
+             current_power_profile == PROFILE_HIGH_PERFORMANCE) {
+diff --git a/product/hidl.mk b/product/hidl.mk
+index 966f4b7..40dbc43 100644
+--- a/product/hidl.mk
++++ b/product/hidl.mk
+@@ -2,3 +2,13 @@
+ PRODUCT_PACKAGES += \
+     android.hidl.base@1.0 \
+     android.hidl.manager@1.0
++
++# BatteryService discovers IHealth/default through the service manifest fragment.
++PRODUCT_PACKAGES += \
++    android.hardware.health@2.1-service \
++    android.hardware.health@2.1-impl
++
++# Both the 32-bit GNSS stack and the 64-bit radio and perf services load this SONAME.
++PRODUCT_PACKAGES += \
++    libhwbinder:32 \
++    libhwbinder:64
+diff --git a/product/init.mk b/product/init.mk
+index 343cf07..a40dc83 100644
+--- a/product/init.mk
++++ b/product/init.mk
+@@ -3,5 +3,6 @@ PRODUCT_PACKAGES += \
+     init.qcom.sh \
+     init.qcom.rc \
+     init.qcom.power.rc \
++    init.recovery.qcom.power.rc \
+     init.recovery.qcom.rc \
+     ueventd.qcom.rc
+diff --git a/product/lights.mk b/product/lights.mk
+index 1efcb0e..2f960ac 100644
+--- a/product/lights.mk
++++ b/product/lights.mk
+@@ -2,4 +2,4 @@
+ PRODUCT_PACKAGES += \
+     android.hardware.light@2.0-impl \
+     android.hardware.light@2.0-service \
+-    lights.MSM8952
++    lights.msm8952
+diff --git a/product/media.mk b/product/media.mk
+index 3d8d27f..7154398 100644
+--- a/product/media.mk
++++ b/product/media.mk
+@@ -7,6 +7,7 @@ PRODUCT_COPY_FILES += \
+ 
+ # Properties
+ PRODUCT_PROPERTY_OVERRIDES += \
++    debug.stagefright.ccodec=0 \
+     media.aac_51_output_enabled=true
+ 
+ PRODUCT_COPY_FILES += \
+diff --git a/product/qcom-audio.mk b/product/qcom-audio.mk
+index 1b9b811..842f0bc 100644
+--- a/product/qcom-audio.mk
++++ b/product/qcom-audio.mk
+@@ -20,6 +20,7 @@ PRODUCT_COPY_FILES += \
+ 
+ # XML Audio configuration files
+ PRODUCT_COPY_FILES += \
++    hardware/qcom-caf/msm8952/audio/configs/msm8952_32/audio_policy_configuration.xml:system/vendor/etc/audio_policy_configuration.xml \
+     frameworks/av/services/audiopolicy/config/a2dp_audio_policy_configuration.xml:system/vendor/etc/a2dp_audio_policy_configuration.xml \
+     frameworks/av/services/audiopolicy/config/audio_policy_volumes.xml:system/vendor/etc/audio_policy_volumes.xml \
+     frameworks/av/services/audiopolicy/config/default_volume_tables.xml:system/vendor/etc/default_volume_tables.xml \
+diff --git a/product/qcom-bluetooth.mk b/product/qcom-bluetooth.mk
+index 4feeac8..2d30e70 100644
+--- a/product/qcom-bluetooth.mk
++++ b/product/qcom-bluetooth.mk
+@@ -1,5 +1,6 @@
+ # Bluetooth
+ PRODUCT_PACKAGES += \
++    android.hardware.bluetooth@1.0-service \
+     libbt-vendor
+ 
+ # Permissions
+diff --git a/product/qcom-gps.mk b/product/qcom-gps.mk
+index aa78616..3046dea 100644
+--- a/product/qcom-gps.mk
++++ b/product/qcom-gps.mk
+@@ -1,19 +1,11 @@
+-# GNSS HAL
++# CSA1 GNSS compatibility shim. The service, implementations, location
++# libraries and configuration are extracted from matching stock firmware.
+ PRODUCT_PACKAGES += \
+-    android.hardware.gnss@1.0-impl \
+-    android.hardware.gnss@1.0-service
+-
+-# GPS
+-PRODUCT_PACKAGES += \
+-    gps.msm8952 \
+-    libshims_get_process_name \
++    libshims_gnss_hidl \
+     libshims_flp
+ 
+ PRODUCT_COPY_FILES += \
+-    $(LOCAL_PATH)/gps/flp.conf:system/etc/flp.conf \
+-    $(LOCAL_PATH)/gps/gps.conf:system/etc/gps.conf \
+-    $(LOCAL_PATH)/gps/izat.conf:system/etc/izat.conf \
+-    $(LOCAL_PATH)/gps/sap.conf:system/etc/sap.conf
++    $(LOCAL_PATH)/rootdir/etc/vendor.samsung.hardware.gnss@1.0-service.rc:system/vendor/etc/init/vendor.samsung.hardware.gnss@1.0-service.rc
+ 
+ # Permissions
+ PRODUCT_COPY_FILES += \
+diff --git a/product/qcom-perf.mk b/product/qcom-perf.mk
+index ea64dd9..889cdff 100644
+--- a/product/qcom-perf.mk
++++ b/product/qcom-perf.mk
+@@ -1,6 +1,6 @@
+ # Power HAL
+ PRODUCT_PACKAGES += \
+-    android.hardware.power@1.1-service-qti
++    android.hardware.power-service-qti
+ 
+ # IRQ balance
+ PRODUCT_COPY_FILES += \
+diff --git a/product/qcom-radio.mk b/product/qcom-radio.mk
+index aad1e10..3374236 100644
+--- a/product/qcom-radio.mk
++++ b/product/qcom-radio.mk
+@@ -41,3 +41,10 @@ PRODUCT_PACKAGES += \
+ 
+ PRODUCT_BOOT_JARS += \
+     telephony-ext
++
++PRODUCT_PACKAGES += libshims_ril_audio
++
++# CSA1 libsettings uses the protobuf C++ ABI exported by VNDK 29.
++PRODUCT_COPY_FILES += \
++    vendor/samsung/c5lte/proprietary/vendor/lib64/libprotobuf-c5-ril.so:system/vendor/lib64/libprotobuf-c5-ril.so \
++    prebuilts/vndk/v29/common/NOTICE_FILES/libprotobuf-cpp-full.so.txt:system/vendor/etc/NOTICE.libprotobuf-c5-ril.txt
+diff --git a/product/qcom-vibrator.mk b/product/qcom-vibrator.mk
+index 31a84cd..a04ba2f 100644
+--- a/product/qcom-vibrator.mk
++++ b/product/qcom-vibrator.mk
+@@ -1,3 +1,5 @@
+ # Vibrator
+ PRODUCT_PACKAGES += \
+-    android.hardware.vibrator@1.0-service.lineage
++    android.hardware.vibrator@1.0-service \
++    android.hardware.vibrator@1.0-impl \
++    vibrator.default
+diff --git a/product/ramdisk.mk b/product/ramdisk.mk
+index c869877..d97a121 100644
+--- a/product/ramdisk.mk
++++ b/product/ramdisk.mk
+@@ -2,3 +2,6 @@
+ PRODUCT_PACKAGES += \
+     fstab.qcom
+ 
++PRODUCT_COPY_FILES += \
++    vendor/samsung/c5lte/boot/dt.img:dt.img \
++    $(LOCAL_PATH)/rootdir/etc/init.c5.zram.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/init.c5.zram.rc
+diff --git a/product/usb.mk b/product/usb.mk
+index 194ee4d..a674813 100644
+--- a/product/usb.mk
++++ b/product/usb.mk
+@@ -9,4 +9,5 @@ PRODUCT_COPY_FILES += \
+ 
+ # USB HAL
+ PRODUCT_PACKAGES += \
+-    android.hardware.usb@1.0-service.basic
++    android.hardware.usb@1.0-service.basic \
++    vendor.lineage.trust@1.0-service
+diff --git a/proprietary-files.txt b/proprietary-files.txt
+index 1d6046b..90be854 100644
+--- a/proprietary-files.txt
++++ b/proprietary-files.txt
+@@ -67,8 +67,6 @@ etc/Tfa9897.cnt
+ etc/audio_platform_info_extcodec.xml
+ 
+ # Bluetooth - from SRT Phone 8.0.0
+-vendor/bin/hw/android.hardware.bluetooth@1.0-service-qti|587ddf45b4d56bf9d0b02c351722336db73ff01f
+-vendor/etc/init/android.hardware.bluetooth@1.0-service-qti.rc|1a2dc1c2d217f47b9c99a0afa9e4912abd32e381
+ vendor/lib64/com.qualcomm.qti.bluetooth_audio@1.0_vendor.so|65741ce5d42b118146362929864fae6ff46d3531
+ vendor/lib64/hw/android.hardware.bluetooth@1.0-impl-qti.so|7b0558d59626a90e2d48b2626334dc39238c6505
+ vendor/lib64/libbt-hidlclient.so|15ccf847e926ec790e1f9bde3b211bc6c3e81b59
+@@ -367,20 +365,65 @@ etc/firmware/ois_SE_BU24219.bin
+ etc/firmware/ois_SP_BU24219.bin
+ etc/firmware/ois_VE_BU24219.bin
+ vendor/firmware/libpn548ad_fw.so
+-vendor/firmware/ram_patch.fw
++vendor/firmware/ram_patch.fw|56524a279cbfa9fe1d21b88d55f3dd2beac84d2d
+ 
+ # Gatekeeper
+ vendor/lib64/hw/gatekeeper.msm8952.so
+ 
+ # GPS
+--lib64/libloc_api_v02.so
+--lib64/libloc_ds_api.so
+ vendor/lib64/hw/flp.default.so
+ vendor/lib64/libflp.so
+ vendor/lib64/libgeofence.so
+ vendor/lib64/libizat_core.so
+ vendor/lib64/liblbs_core.so
+ 
++# GPS - C5000ZCU1CSA1 CHC stock
++vendor/bin/hw/vendor.samsung.hardware.gnss@1.0-service|a244085627cba7ad4bfb30c7e0e7ea246772fdcd
++vendor/bin/loc_launcher|16b65b63d55d8c9510f5d8c105b5b2198f1ccf3b
++vendor/bin/lowi-server|4f6610fd040b49ce4747be0b3549f012160f1b10
++vendor/bin/xtra-daemon|4c2aba32bfe0421a666749f2b1d85a0b3dbba167
++vendor/bin/xtwifi-client|fc0f38c35cc29aaf0e796d2287e6f4b927e82f77
++vendor/bin/xtwifi-inet-agent|f56918b3e3a2539d8038e580445574d4790e7ef2
++vendor/etc/cacert_location.pem|0789bf799c7e45d352a83e2f79ddb0cea86db85b
++vendor/etc/flp.conf|145cafb57015f43c8c610a198b82370bc61e8626
++vendor/etc/gps.conf|6848cbada4fcfe2c0eb8c00993aa65bb0aa108c0
++vendor/etc/izat.conf|889d9dcb58bb8a61579c0cb4f733bfdcf42e5985
++vendor/etc/lowi.conf|c2e6715cfafad6e643ce7eb494c2383e59039ecd
++vendor/etc/sap.conf|4a1ba91e8d6c1bc0171f2ff2fd1ee7c3c9e97294
++vendor/etc/xtra_root_cert.pem|f55a31ec4d9cf8ce2724acadecf00c779f8767db
++vendor/lib/hw/android.hardware.gnss@1.0-impl-qti.so|6c5d5941861a37608af79a4110175270428672e8
++vendor/lib/hw/vendor.qti.gnss@1.0-impl.so|087668e6bded10b90746c664c78a20f044587086
++vendor/lib/hw/vendor.samsung.hardware.gnss@1.0-impl.so|87d894a7adf4d0c34d711eda32ceb538835a707b
++lib/libfloatingfeature.so:vendor/lib/libfloatingfeature.so|0a295e7c4449af45679b82a955083c4f776e1470
++lib/libsecnativefeature.so:vendor/lib/libsecgnssfeature.so|06828b79357cd51d79bb685255db8337d40893df
++vendor/lib/libgps.utils.so:vendor/lib/libgps.csa1.so|13723f7080d7a2865003248ece39e19cafa21b68
++vendor/lib/libloc_core.so:vendor/lib/libloc_c5.so|f6aa875acc1b1aed51f61b916ca8ff4dc6e093e4
++vendor/lib/libDRPlugin.so|8cd62de0da87c8ef9b60377a9d7b732199539112
++vendor/lib/libdataitems.so|d23c82f2a6ee48f8fe97b0d0c39ba485e826aed5
++vendor/lib/libdrplugin_client.so|801829d214b945d9c040f3bc6f6fd19580fd2d76
++vendor/lib/libevent_observer.so|039a68059a6d9ec13491de50c55a5ce12ed1c9b8
++vendor/lib/libflp.so|45f4960dc72c3a13d75db5324bc969bd5630b2ac
++vendor/lib/libgdtap.so|26b32fe9f6982dab1e09bc24faaf943b3b2efb17
++vendor/lib/libgeofence.so|a027ddc9eb306ea42d5585ba2472a1df6a6330ba
++vendor/lib/libgnss.so|2b90f883cd889d465ce9ec6dbcdbe330219eb142
++vendor/lib/libgnsspps.so|7d8ba0702f4dc21adc3b9c655ca3cb308c2fe0a7
++vendor/lib/libizat_client_api.so|93250bc60f724bc7f22742c935cac02bb962d5be
++vendor/lib/libizat_core.so|fe103e2ce71ac0fd0f943220f28af72ae9b3e29d
++vendor/lib/liblbs_core.so|66b38e7f1fc20af4ea2ab31a1ae9932f35fdd86b
++vendor/lib/libloc_api_v02.so|70d08110aa91e5dad8d03b1508d6bf1618251afa
++vendor/lib/libloc_pla.so|3df59b93c0ead01950c5b986abfea2702dbecd72
++vendor/lib/libloc_stub.so|65586ae8be95a3025399cf421fa1c5afb57dd13e
++vendor/lib/liblocation_api.so|3035ef61a6ff103b3cfc141693ccdc5a2936f836
++vendor/lib/liblocationservice.so|c9d204a92b9ac94976bfcf876f7b07d00860d94f
++vendor/lib/liblocationservice_glue.so|44213ebb0ab0596d5037d05475d546c32bc8a93e
++vendor/lib/liblowi_client.so|e4449adacbfc08b7dbbeddae6a9902cec92dc14f
++vendor/lib/liblowi_wifihal.so|eb92ec0885bd38e2cb3280b3bf2527875a7ca2b1
++vendor/lib/libulp2.so|8158c80d48d574d5919bea3a43b582bc1f3d8070
++vendor/lib/libxtadapter.so|23324e0491ccdecc2ca487009623fdcbc18c6303
++vendor/lib/libxtwifi_ulp_adaptor.so|ebe064bc0a45fe36ba39ae3dae673956635acd82
++vendor/lib/vendor.qti.gnss@1.0_vendor.so|57d2efe16b74585b850b5f18db30d2086c29f27f
++vendor/lib/vendor.samsung.hardware.gnss@1.0.so|2b8d914da2c6937fbdc5e1742b8b4384f4f4174
++
+ # Graphics from suzu OPR1.170623.026
+ vendor/lib/egl/eglSubDriverAndroid.so|5753e23ca7eca3e08b0743753809142ef36f4cad
+ vendor/lib/egl/libEGL_adreno.so|22e81c1aacd3b56c6e69f8281db3393d43b9a0a4
+@@ -516,13 +559,13 @@ vendor/lib64/libqti-util.so|7d85e9bb97ce1aef4b604c38a6076cf9d22d67a1
+ vendor/lib64/vendor.qti.hardware.perf@1.0_vendor.so|11f80bc9ce4eb7a5ce937423f24ce2830e74f13f
+ 
+ # Peripheral manager
+-bin/pm-proxy:vendor/bin/pm-proxy
++vendor/bin/pm-proxy|1026129efa13447af42fec53177923a604758e86
+ bin/pm-service:vendor/bin/pm-service
+ vendor/lib64/libperipheral_client.so
+ vendor/lib/libperipheral_client.so
+ 
+ # Sensors
+-lib/hw/sensors.msm8952.so:vendor/lib/sensors.c5lte.so
++vendor/lib/hw/sensors.msm8952.so:vendor/lib/sensors.c5lte.so|f54326abc0c5d3b0f0aed67a05677ec2946572e9
+ vendor/lib/libsensor1.so
+ vendor/lib/sensor_calibrate.so
+ vendor/lib/libyasalgo.so
+diff --git a/rootdir/Android.mk b/rootdir/Android.mk
+index c9ffbc6..e6f1b15 100644
+--- a/rootdir/Android.mk
++++ b/rootdir/Android.mk
+@@ -4,7 +4,7 @@ LOCAL_PATH:= $(call my-dir)
+ 
+ include $(CLEAR_VARS)
+ LOCAL_MODULE       := init.qcom.sh
+-LOCAL_MODULE_TAGS  := optional eng
++LOCAL_MODULE_TAGS  := optional
+ LOCAL_MODULE_CLASS := ETC
+ LOCAL_SRC_FILES    := etc/init.qcom.sh
+ LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR_EXECUTABLES)
+@@ -14,7 +14,7 @@ include $(BUILD_PREBUILT)
+ 
+ include $(CLEAR_VARS)
+ LOCAL_MODULE       := init.qcom.rc
+-LOCAL_MODULE_TAGS  := optional eng
++LOCAL_MODULE_TAGS  := optional
+ LOCAL_MODULE_CLASS := ETC
+ LOCAL_SRC_FILES    := etc/init.qcom.rc
+ LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR_ETC)/init/hw
+@@ -22,7 +22,7 @@ include $(BUILD_PREBUILT)
+ 
+ include $(CLEAR_VARS)
+ LOCAL_MODULE       := init.qcom.power.rc
+-LOCAL_MODULE_TAGS  := optional eng
++LOCAL_MODULE_TAGS  := optional
+ LOCAL_MODULE_CLASS := ETC
+ LOCAL_SRC_FILES    := etc/init.qcom.power.rc
+ LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR_ETC)/init/hw
+@@ -30,25 +30,33 @@ include $(BUILD_PREBUILT)
+ 
+ include $(CLEAR_VARS)
+ LOCAL_MODULE       := init.qcom.usb.rc
+-LOCAL_MODULE_TAGS  := optional eng
++LOCAL_MODULE_TAGS  := optional
+ LOCAL_MODULE_CLASS := ETC
+-LOCAL_SRC_FILES    := etc/init.qcom.usb.rc
++LOCAL_SRC_FILES    := etc/init.c5.usb.rc
+ LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR_ETC)/init/hw
+ include $(BUILD_PREBUILT)
+ 
+-# Copy the power config for recovery too
++# Copy the power config for recovery and import it from the device recovery init.
+ include $(CLEAR_VARS)
+-LOCAL_MODULE       := init.recovery.qcom.rc
+-LOCAL_MODULE_TAGS  := optional eng
++LOCAL_MODULE       := init.recovery.qcom.power.rc
++LOCAL_MODULE_TAGS  := optional
+ LOCAL_MODULE_CLASS := ETC
+ LOCAL_SRC_FILES    := etc/init.qcom.power.rc
+ LOCAL_MODULE_PATH  := $(TARGET_ROOT_OUT)
+ include $(BUILD_PREBUILT)
+ 
++include $(CLEAR_VARS)
++LOCAL_MODULE       := init.recovery.qcom.rc
++LOCAL_MODULE_TAGS  := optional
++LOCAL_MODULE_CLASS := ETC
++LOCAL_SRC_FILES    := etc/init.recovery.qcom.rc
++LOCAL_MODULE_PATH  := $(TARGET_ROOT_OUT)
++include $(BUILD_PREBUILT)
++
+ include $(CLEAR_VARS)
+ LOCAL_MODULE       := ueventd.qcom.rc
+ LOCAL_MODULE_STEM  := ueventd.rc
+-LOCAL_MODULE_TAGS  := optional eng
++LOCAL_MODULE_TAGS  := optional
+ LOCAL_MODULE_CLASS := ETC
+ LOCAL_SRC_FILES    := etc/ueventd.qcom.rc
+ LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR)
+@@ -56,7 +64,7 @@ include $(BUILD_PREBUILT)
+ 
+ include $(CLEAR_VARS)
+ LOCAL_MODULE       := fstab.qcom
+-LOCAL_MODULE_TAGS  := optional eng
++LOCAL_MODULE_TAGS  := optional
+ LOCAL_MODULE_CLASS := ETC
+ LOCAL_SRC_FILES    := etc/fstab.qcom
+ LOCAL_MODULE_PATH  := $(TARGET_OUT_VENDOR_ETC)
+diff --git a/rootdir/etc/fstab.qcom b/rootdir/etc/fstab.qcom
+index 3151f59..35b8f11 100644
+--- a/rootdir/etc/fstab.qcom
++++ b/rootdir/etc/fstab.qcom
+@@ -3,10 +3,10 @@
+ # specify MF_CHECK, and must come before any filesystems that do specify MF_CHECK
+ 
+ /dev/block/bootdevice/by-name/system         /system      ext4    ro,barrier=1                                                wait,recoveryonly
+-/dev/block/bootdevice/by-name/userdata       /data        ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check,formattable,encryptable=footer,length=-16384
+-/dev/block/bootdevice/by-name/userdata       /data        f2fs    rw,discard,nosuid,nodev,noatime,nodiratime,inline_xattr     wait,check,formattable,encryptable=footer,length=-16384
+-/dev/block/bootdevice/by-name/cache          /cache       ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,check
+-/dev/block/bootdevice/by-name/cache          /cache       f2fs    rw,discard,nosuid,nodev,noatime,nodiratime,inline_xattr     wait,check
++/dev/block/bootdevice/by-name/userdata       /data        ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait,encryptable=footer,length=-16384
++/dev/block/bootdevice/by-name/userdata       /data        f2fs    rw,discard,nosuid,nodev,noatime,nodiratime,inline_xattr     wait,encryptable=footer,length=-16384
++/dev/block/bootdevice/by-name/cache          /cache       ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait
++/dev/block/bootdevice/by-name/cache          /cache       f2fs    rw,discard,nosuid,nodev,noatime,nodiratime,inline_xattr     wait
+ /dev/block/bootdevice/by-name/persist        /persist     ext4    noatime,nosuid,nodev,barrier=1,noauto_da_alloc              wait
+ /dev/block/bootdevice/by-name/boot           /boot        emmc    defaults                                                    defaults
+ /dev/block/bootdevice/by-name/recovery       /recovery    emmc    defaults                                                    defaults
+@@ -14,7 +14,7 @@
+ /dev/block/bootdevice/by-name/modem          /firmware-modem    vfat    ro,shortname=lower,uid=1000,gid=1026,dmask=227,fmask=337,context=u:object_r:firmware_file:s0    wait
+ /dev/block/bootdevice/by-name/apnhlos        /firmware   vfat    ro,shortname=lower,uid=1000,gid=1026,dmask=227,fmask=337,context=u:object_r:firmware_file:s0    wait
+ /dev/block/bootdevice/by-name/config         /frp  emmc    defaults                                            defaults
+-/dev/block/bootdevice/by-name/efs            /efs         ext4    noatime,nosuid,nodev,noauto_da_alloc,discard,journal_async_commit,data=ordered,errors=panic   wait,check
++/dev/block/bootdevice/by-name/efs            /efs         ext4    noatime,nosuid,nodev,noauto_da_alloc,discard,data=ordered,errors=panic   wait
+ /dev/block/bootdevice/by-name/dsp            /dsp         ext4    nosuid,nodev,barrier=1                                      wait
+ 
+ /devices/soc.0/7864900.sdhci/mmc_host*       auto         auto    defaults                                                    voldmanaged=sdcard1:auto,noemulatedsd,encryptable=userdata
+diff --git b/rootdir/etc/init.c5.usb.rc b/rootdir/etc/init.c5.usb.rc
+new file mode 100644
+index 0000000..1977d68
+--- /dev/null
++++ b/rootdir/etc/init.c5.usb.rc
+@@ -0,0 +1,120 @@
++# Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
++#
++# Redistribution and use in source and binary forms, with or without
++# modification, are permitted provided that the following conditions are met:
++#     * Redistributions of source code must retain the above copyright
++#       notice, this list of conditions and the following disclaimer.
++#     * Redistributions in binary form must reproduce the above copyright
++#       notice, this list of conditions and the following disclaimer in the
++#       documentation and/or other materials provided with the distribution.
++#     * Neither the name of The Linux Foundation nor
++#       the names of its contributors may be used to endorse or promote
++#       products derived from this software without specific prior written
++#       permission.
++#
++# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++# IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++# NON-INFRINGEMENT ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
++# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
++# OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
++# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
++# OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
++# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++#
++
++on early-init
++    setprop ro.adb.nonblocking_ffs 1
++    setprop sys.usb.ffs.aio_compat 0
++
++on init
++    mkdir /config/usb_gadget/g1 0755 root root
++    write /config/usb_gadget/g1/idVendor 0x18d1
++    write /config/usb_gadget/g1/idProduct 0x4ee7
++    mkdir /config/usb_gadget/g1/strings/0x409 0755 root root
++    write /config/usb_gadget/g1/strings/0x409/serialnumber ${ro.serialno}
++    write /config/usb_gadget/g1/strings/0x409/manufacturer ${ro.product.manufacturer}
++    write /config/usb_gadget/g1/strings/0x409/product ${ro.product.model}
++    mkdir /config/usb_gadget/g1/configs/b.1 0755 root root
++    mkdir /config/usb_gadget/g1/configs/b.1/strings/0x409 0755 root root
++    mkdir /config/usb_gadget/g1/functions/ffs.adb 0755 root root
++    mkdir /config/usb_gadget/g1/functions/mtp.gs0 0755 root root
++    mkdir /config/usb_gadget/g1/functions/ptp.gs1 0755 root root
++    mkdir /dev/usb-ffs 0770 shell shell
++    mkdir /dev/usb-ffs/adb 0770 shell shell
++    mount functionfs adb /dev/usb-ffs/adb uid=2000,gid=2000
++    mkdir /config/usb_gadget/g1/functions/accessory.gs2 0755 root root
++    setprop sys.usb.controller msm_hsusb
++    setprop sys.usb.configfs 1
++
++on property:sys.usb.config=adb && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x18d1
++    write /config/usb_gadget/g1/idProduct 0x4ee7
++
++on property:sys.usb.config=mtp && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x05c6
++    write /config/usb_gadget/g1/idProduct 0x9086
++
++on property:sys.usb.config=mtp,adb && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x05c6
++    write /config/usb_gadget/g1/idProduct 0x9086
++
++on property:sys.usb.config=ptp && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x05c6
++    write /config/usb_gadget/g1/idProduct 0x9086
++
++on property:sys.usb.config=ptp,adb && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x05c6
++    write /config/usb_gadget/g1/idProduct 0x9086
++
++on property:sys.usb.config=rndis && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x05c6
++    write /config/usb_gadget/g1/idProduct 0xf00e
++
++on property:sys.usb.config=rndis,adb && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x05c6
++    write /config/usb_gadget/g1/idProduct 0x9024
++
++on property:sys.usb.config=accessory && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x18d1
++    write /config/usb_gadget/g1/idProduct 0x2d00
++
++on property:sys.usb.config=accessory,adb && property:sys.usb.configfs=1
++    write /config/usb_gadget/g1/idVendor 0x18d1
++    write /config/usb_gadget/g1/idProduct 0x2d01
++
++on property:sys.usb.config=audio_source && property:sys.usb.configfs=1
++    mkdir /config/usb_gadget/g1/functions/audio_source.gs3 0755 root root
++    write /config/usb_gadget/g1/idVendor 0x18d1
++    write /config/usb_gadget/g1/idProduct 0x2d02
++
++on property:sys.usb.config=audio_source,adb && property:sys.usb.configfs=1
++    mkdir /config/usb_gadget/g1/functions/audio_source.gs3 0755 root root
++    write /config/usb_gadget/g1/idVendor 0x18d1
++    write /config/usb_gadget/g1/idProduct 0x2d03
++
++on property:sys.usb.config=accessory,audio_source && property:sys.usb.configfs=1
++    mkdir /config/usb_gadget/g1/functions/audio_source.gs3 0755 root root
++    write /config/usb_gadget/g1/idVendor 0x18d1
++    write /config/usb_gadget/g1/idProduct 0x2d04
++
++on property:sys.usb.config=accessory,audio_source,adb && property:sys.usb.configfs=1
++    mkdir /config/usb_gadget/g1/functions/audio_source.gs3 0755 root root
++    write /config/usb_gadget/g1/idVendor 0x18d1
++    write /config/usb_gadget/g1/idProduct 0x2d05
++
++on property:sys.usb.config=midi && property:sys.usb.configfs=1
++    mkdir /config/usb_gadget/g1/functions/midi.gs5 0755 root root
++    write /config/usb_gadget/g1/idVendor 0x18d1
++    write /config/usb_gadget/g1/idProduct 0x4ee8
++
++on property:sys.usb.config=midi,adb && property:sys.usb.configfs=1
++    mkdir /config/usb_gadget/g1/functions/midi.gs5 0755 root root
++    write /config/usb_gadget/g1/idVendor 0x18d1
++    write /config/usb_gadget/g1/idProduct 0x4ee9
++
++on property:sys.usb.state=none && property:sys.usb.configfs=1
++    rmdir /config/usb_gadget/g1/functions/midi.gs5
++    rmdir /config/usb_gadget/g1/functions/audio_source.gs3
+diff --git a/rootdir/etc/init.qcom.power.rc b/rootdir/etc/init.qcom.power.rc
+index 9869766..89a5bd2 100644
+--- a/rootdir/etc/init.qcom.power.rc
++++ b/rootdir/etc/init.qcom.power.rc
+@@ -50,12 +50,12 @@ on enable-low-power
+     write /sys/devices/system/cpu/cpu6/sched_prefer_idle 0
+     write /sys/devices/system/cpu/cpu7/sched_prefer_idle 0
+ 
+-    write /sys/class/devfreq/qcom,mincpubw.53/governor "cpufreq"
+-    write /sys/class/devfreq/qcom,cpubw.52/governor "bw_hwmon"
+-    write /sys/class/devfreq/qcom,cpubw.52/bw_hwmon/io_percent 20
+-    write /sys/class/devfreq/qcom,cpubw.52/bw_hwmon/guard_band_mbps 30
+-    write /sys/class/devfreq/qcom,gpubw.39/governor "bw_hwmon"
+-    write /sys/class/devfreq/qcom,gpubw.39/bw_hwmon/io_percent 40
++    write /sys/class/devfreq/soc:qcom,mincpubw/governor "cpufreq"
++    write /sys/class/devfreq/0.qcom,cpubw/governor "bw_hwmon"
++    write /sys/class/devfreq/0.qcom,cpubw/bw_hwmon/io_percent 20
++    write /sys/class/devfreq/0.qcom,cpubw/bw_hwmon/guard_band_mbps 30
++    write /sys/class/devfreq/soc:qcom,gpubw/governor "bw_hwmon"
++    write /sys/class/devfreq/soc:qcom,gpubw/bw_hwmon/io_percent 40
+ 
+     # disable thermal & BCL core_control to update interactive gov settings
+     write /sys/module/msm_thermal/core_control/enabled 0
+diff --git a/rootdir/etc/init.qcom.rc b/rootdir/etc/init.qcom.rc
+index 29546e8..afb6d9f 100644
+--- a/rootdir/etc/init.qcom.rc
++++ b/rootdir/etc/init.qcom.rc
+@@ -144,6 +144,10 @@ on post-fs-data
+     mkdir /data/misc/location/gpsone_d 0770 system gps
+     mkdir /data/misc/location/quipc 0770 gps system
+     mkdir /data/misc/location/gsiff 0770 gps gps
++    mkdir /data/vendor/location 0770 gps gps
++    mkdir /data/vendor/location/mq 0770 gps gps
++    mkdir /data/vendor/location/xtwifi 0770 gps gps
++    mkdir /data/system/gps 0770 gps system
+ 
+     #Create directory from IMS services
+     mkdir /data/shared 0755
+@@ -514,7 +518,7 @@ service wpa_supplicant /vendor/bin/hw/wpa_supplicant \
+     disabled
+     oneshot
+ 
+-service loc_launcher /system/bin/loc_launcher
++service loc_launcher /vendor/bin/loc_launcher
+     #loc_launcher will start as root and set its uid to gps
+     class late_start
+     group gps inet net_raw oem_2950 net_admin wifi
+@@ -534,7 +538,7 @@ service ril-daemon2 /vendor/bin/hw/rild -c 2
+     group radio cache inet misc audio log readproc wakelock
+     capabilities BLOCK_SUSPEND NET_ADMIN NET_RAW
+ 
+-service charger /charger
++service charger /system/bin/charger
+     class charger
+     group log
+     seclabel u:r:charger:s0
+@@ -608,6 +612,18 @@ service per_mgr /vendor/bin/pm-service
+     user system
+     group system net_raw
+ 
++service per_proxy /vendor/bin/pm-proxy
++    class core
++    user system
++    group system
++    disabled
++
++on property:init.svc.per_mgr=running
++    start per_proxy
++
++on property:sys.boot_completed=1
++    restart per_proxy
++
+ service msm_irqbalance /vendor/bin/msm_irqbalance -f /vendor/etc/msm_irqbalance.conf
+     class core
+     user root
+@@ -622,7 +638,7 @@ service msm_irqbal_lb /vendor/bin/msm_irqbalance -f /vendor/etc/msm_irqbalance_l
+     writepid /dev/cpuset/system-background/tasks
+ 
+ on property:vold.decrypt=trigger_restart_framework
+-    restart audio-hal-2-0
++    restart vendor.audio-hal
+     restart vendor.light-hal-2-0
+     stop vendor.camera-provider-2-4
+     start vendor.camera-provider-2-4
+diff --git a/recovery/root/init.recovery.qcom.rc b/recovery/root/init.recovery.qcom.rc
+new file mode 100644
+index 0000000..0a1051b
+--- /dev/null
++++ b/recovery/root/init.recovery.qcom.rc
+@@ -0,0 +1,9 @@
++import /init.recovery.qcom.power.rc
++
++on init
++    setprop sys.usb.configfs 1
++    setprop sys.usb.controller msm_hsusb
++
++on fs
++    wait /dev/block/platform/soc.0/${ro.boot.bootdevice}
++    symlink /dev/block/platform/soc.0/${ro.boot.bootdevice} /dev/block/bootdevice
+diff --git b/rootdir/etc/init.recovery.qcom.rc b/rootdir/etc/init.recovery.qcom.rc
+new file mode 100644
+index 0000000..1579219
+--- /dev/null
++++ b/rootdir/etc/init.recovery.qcom.rc
+@@ -0,0 +1,5 @@
++import /init.recovery.qcom.power.rc
++
++on fs
++    wait /dev/block/platform/soc.0/${ro.boot.bootdevice}
++    symlink /dev/block/platform/soc.0/${ro.boot.bootdevice} /dev/block/bootdevice
+diff --git a/rootdir/etc/ueventd.qcom.rc b/rootdir/etc/ueventd.qcom.rc
+index 5ce3fd2..1c48ddf 100644
+--- a/rootdir/etc/ueventd.qcom.rc
++++ b/rootdir/etc/ueventd.qcom.rc
+@@ -256,3 +256,29 @@
+ 
+ # Add device block for FRP
+ /dev/block/platform/soc.0/7824900.sdhci/by-name/frp       0660   system     system
++
++# Frozen C5 v152 BHY input2; do not reuse for another input topology.
++/sys/devices/virtual/input/input2 load_ram_patch 0220 system system
++/sys/devices/virtual/input/input2 sensor_sel 0220 system system
++/sys/devices/virtual/input/input2 sensor_flush 0220 system system
++/sys/devices/virtual/input/input2 update_device_info 0220 system system
++/sys/devices/virtual/input/input2 sensor_data_size 0220 system system
++/sys/devices/virtual/input/input2 req_fw 0220 system system
++/sys/devices/virtual/input/input2 enable_irq_log 0220 system system
++/sys/devices/virtual/input/input2 enable_fifo_log 0220 system system
++/sys/devices/virtual/input/input2 log_raw_data 0220 system system
++/sys/devices/virtual/input/input2 log_input_data_gesture 0220 system system
++/sys/devices/virtual/input/input2 log_input_data_tilt_ar 0220 system system
++/sys/devices/virtual/input/input2 log_fusion_data 0220 system system
++/sys/devices/virtual/input/input2 sensor_conf 0660 system system
++/sys/devices/virtual/input/input2 calib_profile 0660 system system
++/sys/devices/virtual/input/input2 sic_matrix 0660 system system
++/sys/devices/virtual/input/input2 meta_event_ctrl 0660 system system
++/sys/devices/virtual/input/input2 fifo_ctrl 0660 system system
++/sys/devices/virtual/input/input2 working_mode 0660 system system
++/sys/devices/virtual/input/input2 mapping_matrix_acc 0660 system system
++/sys/devices/virtual/input/input2 mapping_matrix 0660 system system
++/sys/devices/virtual/input/input2 fifo_frame 0640 system system
++
++# The CSA1 time service runs as system.
++/dev/alarm 0600 system system
+diff --git b/rootdir/etc/vendor.samsung.hardware.gnss@1.0-service.rc b/rootdir/etc/vendor.samsung.hardware.gnss@1.0-service.rc
+new file mode 100644
+index 0000000..2b92b81
+--- /dev/null
++++ b/rootdir/etc/vendor.samsung.hardware.gnss@1.0-service.rc
+@@ -0,0 +1,4 @@
++service sec_gnss_service /vendor/bin/hw/vendor.samsung.hardware.gnss@1.0-service
++    class main
++    user system
++    group system gps
+diff --git a/sepolicy/file.te b/sepolicy/file.te
+index dfc5070..bd3cf22 100644
+--- a/sepolicy/file.te
++++ b/sepolicy/file.te
+@@ -1,7 +1,10 @@
+ type app_efs_file, file_type;
+ type biometrics_data_file, file_type, data_file_type;
+ type wifi_efs_file, file_type;
++type gps_data_file, file_type, data_file_type;
+ type sysfs_camera, fs_type, sysfs_type;
+ type sysfs_mdnie, fs_type, sysfs_type;
+ type sysfs_sec_key, fs_type, sysfs_type;
+ type sysfs_keypad, fs_type, sysfs_type;
++
++type c5_alarm_device, dev_type;
+diff --git a/sepolicy/file_contexts b/sepolicy/file_contexts
+index 0d42c87..483b4c5 100644
+--- a/sepolicy/file_contexts
++++ b/sepolicy/file_contexts
+@@ -19,6 +19,9 @@
+ /efs/FactoryApp(/.*)?                                           u:object_r:app_efs_file:s0
+ /efs/wifi(/.*)?                                                 u:object_r:wifi_efs_file:s0
+ 
++# Firmware
++/firmware-modem(/.*)?                                           u:object_r:firmware_file:s0
++
+ # FRP
+ /dev/block/platform/soc\.0/7824900\.sdhci/by-name/persistent    u:object_r:frp_block_device:s0
+ 
+@@ -29,6 +32,10 @@
+ # Graphics
+ /sys/devices/virtual/lcd/panel(/.*)?                            u:object_r:sysfs_graphics:s0
+ 
++# GNSS
++/(vendor|system/vendor)/bin/hw/vendor\.samsung\.hardware\.gnss@1\.0-service u:object_r:hal_gnss_default_exec:s0
++/data/system/gps(/.*)?                                         u:object_r:gps_data_file:s0
++
+ # Lights
+ /sys/devices/virtual/sec/sec_touchkey/brightness                u:object_r:sysfs_leds:s0
+ /sys/devices/virtual/sec/led(/.*)?                              u:object_r:sysfs_leds:s0
+@@ -71,3 +78,5 @@
+ /dev/block/platform/soc\.0/7824900\.sdhci/by-name/fota          u:object_r:misc_block_device:s0
+ 
+ /(vendor|system/vendor)/bin/99ril                               u:object_r:qti_init_shell_exec:s0
++
++/dev/alarm -c u:object_r:c5_alarm_device:s0
+diff --git b/sepolicy/genfs_contexts b/sepolicy/genfs_contexts
+new file mode 100644
+index 0000000..31f57d6
+--- /dev/null
++++ b/sepolicy/genfs_contexts
+@@ -0,0 +1,7 @@
++genfscon sysfs /devices/platform/battery/power_supply u:object_r:sysfs_batteryinfo:s0
++genfscon sysfs /devices/platform/i2c@11/i2c-12/12-0071/power_supply u:object_r:sysfs_batteryinfo:s0
++genfscon sysfs /devices/platform/sec-multi-charger/power_supply u:object_r:sysfs_batteryinfo:s0
++genfscon sysfs /devices/soc.0/soc:i2c@13/i2c-9/9-0049/sm5705-charger/power_supply u:object_r:sysfs_batteryinfo:s0
++genfscon sysfs /devices/soc.0/soc:i2c@13/i2c-9/9-0058/power_supply u:object_r:sysfs_batteryinfo:s0
++genfscon sysfs /devices/soc.0/1a00000.qcom,mdss_mdp/1a00000.qcom,mdss_mdp:qcom,mdss_fb_primary/leds/lcd-backlight u:object_r:sysfs_leds:s0
++genfscon sysfs /devices/virtual/input/input2 u:object_r:sysfs_sensors:s0
+diff --git b/sepolicy/hal_gnss_default.te b/sepolicy/hal_gnss_default.te
+new file mode 100644
+index 0000000..b0424eb
+--- /dev/null
++++ b/sepolicy/hal_gnss_default.te
+@@ -0,0 +1,9 @@
++allow hal_gnss_default gps_data_file:dir create_dir_perms;
++allow hal_gnss_default gps_data_file:file create_file_perms;
++allow hal_gnss_default location_data_file:dir r_dir_perms;
++
++# This legacy platform registers vendor.qcom.PeripheralManager with the
++# framework servicemanager, while the common QCOM GNSS policy only grants its
++# client access through vndservicemanager.
++binder_use(hal_gnss_default)
++allow hal_gnss_default binder_per_mgr_service:service_manager find;
+diff --git b/sepolicy/hwservice_contexts b/sepolicy/hwservice_contexts
+new file mode 100644
+index 0000000..5789bf3
+--- /dev/null
++++ b/sepolicy/hwservice_contexts
+@@ -0,0 +1 @@
++vendor.samsung.hardware.gnss::ISecGnss u:object_r:hal_gnss_hwservice:s0
+diff --git a/sepolicy/init.te b/sepolicy/init.te
+index aba71a5..27cde41 100644
+--- a/sepolicy/init.te
++++ b/sepolicy/init.te
+@@ -1,2 +1 @@
+-allow init debugfs:file write;
+-allow init sysfs:lnk_file setattr;
++allow init efs_file:dir mounton;
+diff --git b/sepolicy/time_daemon.te b/sepolicy/time_daemon.te
+new file mode 100644
+index 0000000..6eeb998
+--- /dev/null
++++ b/sepolicy/time_daemon.te
+@@ -0,0 +1,3 @@
++# The CSA1 time service uses ANDROID_ALARM_SET_RTC on the C5 alarm device.
++allow time_daemon c5_alarm_device:chr_file { open read write ioctl };
++allowxperm time_daemon c5_alarm_device:chr_file ioctl 0x6105;

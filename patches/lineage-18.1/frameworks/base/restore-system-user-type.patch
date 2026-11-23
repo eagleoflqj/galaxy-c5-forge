@@ -1,0 +1,17 @@
+diff --git a/services/core/java/com/android/server/pm/UserManagerService.java b/services/core/java/com/android/server/pm/UserManagerService.java
+index 140cf66a..9cb2a2f1 100644
+--- a/services/core/java/com/android/server/pm/UserManagerService.java
++++ b/services/core/java/com/android/server/pm/UserManagerService.java
+@@ -3125,6 +3125,12 @@ public class UserManagerService extends IUserManager.Stub {
+             serialNumber = readIntAttribute(parser, ATTR_SERIAL_NO, id);
+             flags = readIntAttribute(parser, ATTR_FLAGS, 0);
+             userType = parser.getAttributeValue(null, ATTR_TYPE);
++            // Android 10 can rewrite the system user without its Android 11 type after rollback.
++            if (userType == null && id == UserHandle.USER_SYSTEM && mUserVersion == 9
++                    && (flags & UserInfo.FLAG_SYSTEM) != 0) {
++                userType = (flags & UserInfo.FLAG_FULL) != 0 ? UserManager.USER_TYPE_FULL_SYSTEM
++                        : UserManager.USER_TYPE_SYSTEM_HEADLESS;
++            }
+             userType = userType != null ? userType.intern() : null;
+             iconPath = parser.getAttributeValue(null, ATTR_ICON_PATH);
+             creationTime = readLongAttribute(parser, ATTR_CREATION_TIME, 0);

@@ -7,7 +7,7 @@ readonly project_dir
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/setup.sh --workdir /absolute/android-work [--lineage-version 16.0|17.1] [--jobs N] [--no-sync]
+Usage: ./scripts/setup.sh --workdir /absolute/android-work [--lineage-version 16.0|17.1|18.1] [--jobs N] [--no-sync]
 
 Initializes the selected pinned LineageOS manifest and installs its fixed c5lte
 local manifest. Project revisions come from manifests/locked/. By default it
@@ -70,8 +70,14 @@ case "$lineage_version" in
     locked_manifest="${project_dir}/manifests/locked/lineage-17.1.xml"
     log_version=17.1
     ;;
+  18.1)
+    manifest_commit='75e412bbb78aa0009405f696d0d3775e995e64ca'
+    local_manifest_source="${project_dir}/manifests/local/c5lte-lineage-18.1.xml"
+    locked_manifest="${project_dir}/manifests/locked/lineage-18.1.xml"
+    log_version=18.1
+    ;;
   *)
-    echo "--lineage-version must be 16.0 or 17.1" >&2
+    echo "--lineage-version must be 16.0, 17.1 or 18.1" >&2
     exit 2
     ;;
 esac
@@ -101,14 +107,27 @@ if (( available_kib < required_kib )); then
   exit 1
 fi
 
+log_dir="${project_dir}/logs"
+repo_flags=()
+if [[ "$lineage_version" == 18.1 ]]; then
+  root=$(dirname "$(realpath "$workdir")")
+  export HOME="$root/home" TMPDIR="$root/tmp" GIT_ALLOW_PROTOCOL=https GIT_LFS_SKIP_SMUDGE=1
+  log_dir="$root/logs"
+  install -d -m 700 "$HOME" "$TMPDIR"
+  repo_flags+=(--repo-rev=v2.54)
+fi
 cd "$workdir"
-repo init \
+repo init "${repo_flags[@]}" \
   --manifest-url "$manifest_url" \
   --manifest-branch "$manifest_commit" \
   --depth=1 \
   --no-clone-bundle \
   --no-tags
 
+if [[ "$lineage_version" == 18.1 && $(git -C .repo/repo rev-parse HEAD) != 97dc5c1bd9527c2abe2183b16a4b7ef037dc34a7 ]]; then
+  echo "Unexpected git-repo version for LineageOS 18.1" >&2
+  exit 1
+fi
 mkdir -p .repo/local_manifests
 install -m 0644 "$local_manifest_source" .repo/local_manifests/c5lte.xml
 
@@ -139,8 +158,8 @@ if [[ "$do_sync" == false ]]; then
   exit 0
 fi
 
-mkdir -p "${project_dir}/logs"
-log_file="${project_dir}/logs/repo-sync-lineage-${log_version}-$(date -u +%Y%m%dT%H%M%SZ).log"
+mkdir -p "$log_dir"
+log_file="${log_dir}/repo-sync-lineage-${log_version}-$(date -u +%Y%m%dT%H%M%SZ).log"
 echo "Writing sync log to $log_file"
 repo sync \
   --current-branch \

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <project path="device/samsung/c5lte" name="vm03/android_device_samsung_c5lte" revision="5a5ee3ae766dfda573f6512223fa724279bafdab" upstream="refs/heads/lineage-16.0" />
+  <project path="hardware/samsung" name="LineageOS/android_hardware_samsung" revision="6710479da9e205360dc9097a7aa264bb40e6e5be" upstream="refs/heads/lineage-18.1" />
+</manifest>
