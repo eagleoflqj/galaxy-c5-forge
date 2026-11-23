@@ -16,6 +16,8 @@ The [changed-file manifest](../manifests/system-changes.tsv) identifies the inst
 
 The last two SYSTEM updates used the same base image. Settings changed 12,656 blocks. The USB init and configfs changes touched 191 other blocks. Replaying those changes reconstructed the accepted full-partition SHA-256. This step takes already built components as input. The complete accepted SYSTEM still requires separately built components.
 
+To find a source patch, look under `patches/lineage-<version>/` or `patches/shared/` and follow the project path from the Android checkout, such as `system/core/`. The apply script selects the shared patches and any file filters for each version. The 17.1 USB init generator reads its ordered series from `patches/lineage-17.1/usb-init/`. Optional diagnostic patches live in `patches/diagnostics/`.
+
 The device policy series targets the pinned device checkout. Regenerate the vendor makefiles from the patched proprietary-files.txt using the device's setup-makefiles.sh. A clean replay reproduced Android.bp, Android.mk, BoardConfigVendor.mk and c5lte-vendor.mk from those inputs.
 
 From a prepared Android checkout, run `./scripts/build-usb-init.sh "$ANDROID_WORK" "$OUTPUT_PARENT"` to generate the four accepted USB init files. The command prints the path of its new output directory. All four outputs are checked against the accepted image.

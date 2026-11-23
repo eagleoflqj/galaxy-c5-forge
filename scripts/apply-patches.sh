@@ -87,13 +87,13 @@ apply_patch_set() {
       printf 'APPLIED %s\n' "${patch#"$project_dir/"}"
     elif git -C "$source_dir" apply --reverse --check "$patch" 2>/dev/null; then
       printf 'PRESENT %s\n' "${patch#"$project_dir/"}"
-    elif [[ "$lineage_version" == 17.1 && "$patch" == "$project_dir/patches/device-samsung-c5lte/0003-use-csa1-stock-gnss-stack.patch" ]] && \
+    elif [[ "$lineage_version" == 17.1 && "$patch" == "$project_dir/patches/shared/device/samsung/c5lte/0003-use-csa1-stock-gnss-stack.patch" ]] && \
         git -C "$source_dir" apply --reverse --check --exclude=sepolicy/hal_gnss_default.te "$patch" 2>/dev/null && \
         grep -Fqx 'allow hal_gnss_default gps_data_file:dir create_dir_perms;' "$source_dir/sepolicy/hal_gnss_default.te" && \
         grep -Fqx 'allow hal_gnss_default gps_data_file:file create_file_perms;' "$source_dir/sepolicy/hal_gnss_default.te" && \
         grep -Fqx 'allow hal_gnss_default location_data_file:dir r_dir_perms;' "$source_dir/sepolicy/hal_gnss_default.te"; then
       printf 'PRESENT %s (17.1 extended GNSS policy)\n' "${patch#"$project_dir/"}"
-    elif [[ "$lineage_version" == 17.1 && "$patch" == "$project_dir/patches/device-samsung-c5lte/0001-use-device-verified-boot-parameters.patch" ]] && \
+    elif [[ "$lineage_version" == 17.1 && "$patch" == "$project_dir/patches/shared/device/samsung/c5lte/0001-use-device-verified-boot-parameters.patch" ]] && \
         grep -Fqx 'require version-bootloader=C5000ZHU1CRJ5|C5000ZCU1CSA1' "$source_dir/board-info.txt" && \
         grep -Fq -- "--ramdisk_offset \$(BOARD_RAMDISK_OFFSET)" "$source_dir/board/kernel.mk" && \
         grep -Fq -- "--tags_offset \$(BOARD_KERNEL_TAGS_OFFSET)" "$source_dir/board/kernel.mk" && \
@@ -103,11 +103,11 @@ apply_patch_set() {
         grep -Fq 'import /init.recovery.qcom.power.rc' "$source_dir/rootdir/etc/init.recovery.qcom.rc" && \
         grep -Fq "symlink /dev/block/platform/soc.0/\${ro.boot.bootdevice} /dev/block/bootdevice" "$source_dir/rootdir/etc/init.recovery.qcom.rc"; then
       printf 'PRESENT %s (17.1 normalized module tags)\n' "${patch#"$project_dir/"}"
-    elif [[ "$lineage_version" == 17.1 && "$patch" == "$project_dir/patches/proprietary-vendor-samsung-c5lte-lineage-17.1/0001-drop-android-8-bluetooth-service.patch" ]] && \
+    elif [[ "$lineage_version" == 17.1 && "$patch" == "$project_dir/patches/lineage-17.1/vendor/samsung/c5lte/0001-drop-android-8-bluetooth-service.patch" ]] && \
         ! grep -Fq 'android.hardware.bluetooth@1.0-service-qti' "$source_dir/c5lte-vendor.mk" && \
         grep -Fq 'android.hardware.bluetooth@1.0-impl-qti.so' "$source_dir/c5lte-vendor.mk"; then
       printf 'PRESENT %s (regenerated vendor makefile)\n' "${patch#"$project_dir/"}"
-    elif [[ "$lineage_version" == 17.1 && "$patch" == "$project_dir/patches/device-samsung-c5lte-lineage-17.1/0014-restore-stock-pm-proxy-voter.patch" ]] && \
+    elif [[ "$lineage_version" == 17.1 && "$patch" == "$project_dir/patches/lineage-17.1/device/samsung/c5lte/0014-restore-stock-pm-proxy-voter.patch" ]] && \
         grep -Fqx 'vendor/bin/pm-proxy|1026129efa13447af42fec53177923a604758e86' "$source_dir/proprietary-files.txt" && \
         grep -Fq 'service per_proxy /vendor/bin/pm-proxy' "$source_dir/rootdir/etc/init.qcom.rc" && \
         grep -Fq 'on property:init.svc.per_mgr=running' "$source_dir/rootdir/etc/init.qcom.rc" && \
@@ -122,36 +122,36 @@ apply_patch_set() {
 
 apply_patch_set \
   "$workdir/device/samsung/c5lte" \
-  "$project_dir/patches/device-samsung-c5lte"
+  "$project_dir/patches/shared/device/samsung/c5lte"
 
 apply_patch_set \
   "$workdir/external/one-true-awk" \
-  "$project_dir/patches/external-one-true-awk"
+  "$project_dir/patches/shared/external/one-true-awk"
 
 if [[ "$lineage_version" == 16.0 ]]; then
   apply_patch_set \
     "$workdir/bootable/recovery" \
-    "$project_dir/patches/bootable-recovery"
+    "$project_dir/patches/lineage-16.0/bootable/recovery"
 else
   apply_patch_set \
     "$workdir/packages/apps/Settings" \
-    "$project_dir/patches/packages-apps-settings-lineage-17.1"
+    "$project_dir/patches/shared/packages/apps/Settings"
 
   apply_patch_set \
     "$workdir/packages/apps/Snap" \
-    "$project_dir/patches/packages-apps-snap-lineage-17.1"
+    "$project_dir/patches/shared/packages/apps/Snap"
 
   apply_patch_set \
     "$workdir/device/samsung/c5lte" \
-    "$project_dir/patches/device-samsung-c5lte-lineage-17.1"
+    "$project_dir/patches/lineage-17.1/device/samsung/c5lte"
 
   apply_patch_set \
     "$workdir/vendor/samsung/c5lte" \
-    "$project_dir/patches/proprietary-vendor-samsung-c5lte-lineage-17.1"
+    "$project_dir/patches/lineage-17.1/vendor/samsung/c5lte"
 
   apply_patch_set \
     "$workdir/hardware/samsung" \
-    "$project_dir/patches/hardware-samsung-lineage-17.1"
+    "$project_dir/patches/shared/hardware/samsung"
 
   "$project_dir/scripts/patch-camera-qservice.sh" --workdir "$workdir"
 
@@ -172,19 +172,19 @@ else
 
   apply_patch_set \
     "$workdir/hardware/interfaces" \
-    "$project_dir/patches/hardware-interfaces-lineage-17.1"
+    "$project_dir/patches/lineage-17.1/hardware/interfaces"
 
   apply_patch_set \
     "$workdir/system/core" \
-    "$project_dir/patches/system-core-lineage-17.1"
+    "$project_dir/patches/lineage-17.1/system/core"
 
   apply_patch_set \
     "$workdir/hardware/qcom-caf/msm8952/audio" \
-    "$project_dir/patches/hardware-qcom-audio-msm8952-lineage-17.1"
+    "$project_dir/patches/shared/hardware/qcom-caf/msm8952/audio"
 
   apply_patch_set \
     "$workdir/kernel/samsung/c5lte" \
-    "$project_dir/patches/kernel-samsung-c5lte-lineage-17.1"
+    "$project_dir/patches/lineage-17.1/kernel/samsung/c5lte"
 
   recovery_adb="$workdir/bootable/recovery/install/adb_install.cpp"
   recovery_init="$workdir/bootable/recovery/etc/init.rc"

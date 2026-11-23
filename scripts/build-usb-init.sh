@@ -62,16 +62,16 @@ sha256sum --check --status <<'PINS'
 d5a19ba5ce59d8850abcf32508c7cee7fb464e36090d424c37e91399a834a195  init.usb.rc
 5c2f614c05edc8cd6add0e28781d9f799f10e20e34962b318ffe6d55647fe4cc  init.usb.configfs.rc
 PINS
-patch --batch --forward --fuzz=0 --silent -p1 < "$scripts/../patches/android-4.9-usb-midi-v393/0001-add-midi-usb-compositions.patch"
+patch --batch --forward --fuzz=0 --silent -p1 < "$scripts/../patches/lineage-17.1/usb-init/0001-add-midi-usb-compositions.patch"
 sha256sum --check --status <<'PINS'
 573e061103989f7f092ed18d4ed01240f2b4bd1d8faa78fe5b3b3552f72718f3  init.usb.rc
 55dc5c82fe11009936ba67624b9a468d80fbc4f7b20bea88a53f62a006a9c74c  init.usb.configfs.rc
 PINS
-patch --batch --forward --fuzz=0 --silent -p1 < "$scripts/../patches/android-4.9-usb-accessory-v393/0001-c5-accessory-init.patch"
+patch --batch --forward --fuzz=0 --silent -p1 < "$scripts/../patches/lineage-17.1/usb-init/0002-add-accessory-init.patch"
 sha256sum --check --status <<'PINS'
 f4c28368b6fc5656f87ba421ef95bd6b3720722ca15ff88dea0809f12cd2f495  vendor/etc/init/hw/init.qcom.usb.rc
 6d1253a46e819ad8660e70521b31271c29177337cffdf47908a499725c31ba5d  system/etc/init/usbd.rc
 PINS
-patch --batch --forward --fuzz=0 --silent -p1 < "$scripts/../patches/accepted-usb-system/audio-source.patch"
+patch --batch --forward --fuzz=0 --silent -p1 < "$scripts/../patches/lineage-17.1/usb-init/0003-add-audio-source.patch"
 echo "e612f4f5261b767eced588c87d1412e11430fb9f39a373aefc78c7b2354739a8  init.usb.configfs.rc" | sha256sum -c --status
 printf '%s\n' "$out"
