@@ -1,0 +1,36 @@
+Android 12L dropped libbfqio. The C5 kernel uses CFQ with CONFIG_BLK_CGROUP disabled, so the old helper never assigned a BFQ cgroup. Keep the vsync thread's FIFO scheduling.
+
+diff --git a/libhwcomposer/Android.mk b/libhwcomposer/Android.mk
+index eaccc4c..5ac58d0 100644
+--- a/libhwcomposer/Android.mk
++++ b/libhwcomposer/Android.mk
+@@ -16,8 +16,7 @@ endif
+ LOCAL_SHARED_LIBRARIES        := $(common_libs) libEGL liboverlay \
+                                  libhdmi libqdutils libhardware_legacy \
+                                  libdl libmemalloc libqservice libsync \
+-                                 libbinder libmedia libdisplayconfig \
+-                                 libbfqio
++                                 libbinder libmedia libdisplayconfig
+ 
+ LOCAL_CFLAGS                  := $(common_flags) -DLOG_TAG=\"qdhwcomposer\" -Wno-absolute-value \
+                                  -Wno-float-conversion -Wno-unused-parameter
+diff --git a/libhwcomposer/hwc_vsync.cpp b/libhwcomposer/hwc_vsync.cpp
+index cbead38..f0dc690 100644
+--- a/libhwcomposer/hwc_vsync.cpp
++++ b/libhwcomposer/hwc_vsync.cpp
+@@ -19,7 +19,6 @@
+  */
+ 
+ #include <cutils/properties.h>
+-#include <bfqio/bfqio.h>
+ #include <utils/Log.h>
+ #include <fcntl.h>
+ #include <sys/ioctl.h>
+@@ -133,7 +132,6 @@ static void *vsync_loop(void *param)
+     if (sched_setscheduler(gettid(), SCHED_FIFO, &sched_param) != 0) {
+         ALOGE("Couldn't set SCHED_FIFO for hwc_vsync");
+     }
+-    android_set_rt_ioprio(0, 1);
+ 
+     char vdata[MAX_DATA];
+     //Number of physical displays

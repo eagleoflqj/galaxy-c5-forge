@@ -1,0 +1,30 @@
+The CSA1 Qualcomm GNSS extension registers its inherited IGnss interface with the same gnss_vendor instance. Its LOWI companion uses the 32-bit WPA control client.
+
+--- a/manifest.xml
++++ b/manifest.xml
+@@ -72,6 +72,7 @@
+         <version>1.0</version>
+         <interface>
+             <name>IGnss</name>
++            <instance>gnss_vendor</instance>
+             <instance>default</instance>
+         </interface>
+     </hal>
+--- a/product/qcom-wifi.mk
++++ b/product/qcom-wifi.mk
+@@ -22,6 +22,7 @@
+ 
+ PRODUCT_PACKAGES += \
+     hostapd \
++    libwpa_client:32 \
+     dhcpcd.conf \
+     wpa_supplicant \
+     wpa_supplicant.conf
+--- /dev/null
++++ b/sepolicy/legacy_qmux.te
+@@ -0,0 +1,5 @@
++# The CSA1 GNSS HAL connects to the modem through the legacy QMUX socket.
++qmux_socket(hal_gnss_default)
++
++# Discover the modem through the C5 subsystem name attributes.
++allow qmuxd sysfs_data:file r_file_perms;

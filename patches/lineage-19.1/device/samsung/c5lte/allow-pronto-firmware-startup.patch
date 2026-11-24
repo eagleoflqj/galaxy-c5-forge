@@ -1,0 +1,12 @@
+Allow the Pronto controller to retry SMD initialization while the cold firmware is loading. The Bluetooth adapter also allows four seconds for BLE startup.
+
+--- a/product/qcom-bluetooth.mk
++++ b/product/qcom-bluetooth.mk
+@@ -10,6 +10,7 @@
+ 
+ # Properties
+ PRODUCT_PROPERTY_OVERRIDES += \
++    bluetooth.enable_timeout_ms=4000 \
+     ro.btconfig.vendor=qcom \
+     ro.bluetooth.dun=true \
+     ro.bluetooth.hfp.ver=1.7 \

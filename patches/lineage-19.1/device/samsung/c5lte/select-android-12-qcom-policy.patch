@@ -1,0 +1,17 @@
+Use the Android 12L Qualcomm policy definitions for the C5 vendor services. The upstream board list has no msm8952 entry. Select the shared vendor directories for this board without selecting another SoC's device labels.
+
+diff --git a/board/qcom-sepolicy.mk b/board/qcom-sepolicy.mk
+--- a/board/qcom-sepolicy.mk
++++ b/board/qcom-sepolicy.mk
+@@ -1 +1,10 @@
+-include device/qcom/sepolicy-legacy/sepolicy.mk
++include device/qcom/sepolicy-legacy-um/SEPolicy.mk
++
++BOARD_VENDOR_SEPOLICY_DIRS += \
++    device/qcom/sepolicy-legacy-um/legacy/vendor/common \
++    device/qcom/sepolicy-legacy-um/legacy/vendor/common/sysmonapp \
++    device/qcom/sepolicy-legacy-um/legacy/vendor/ssg
++
++ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
++BOARD_VENDOR_SEPOLICY_DIRS += device/qcom/sepolicy-legacy-um/legacy/vendor/test
++endif

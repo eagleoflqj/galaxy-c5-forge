@@ -1,0 +1,52 @@
+The non-Treble C5 system_server is a boot-control client. Scope Qualcomm's slot-management device permissions to its HAL server so clients do not inherit raw block access.
+
+diff --git a/legacy/vendor/common/hal_bootctl.te b/legacy/vendor/common/hal_bootctl.te
+index 4c64b85..658c009 100644
+--- a/legacy/vendor/common/hal_bootctl.te
++++ b/legacy/vendor/common/hal_bootctl.te
+@@ -30,10 +30,10 @@
+ 
+ # Getting and setting GPT attributes for the bootloader iterates over all the
+ # partition names in the block_device directory /dev/block/.../by-name
+-allow hal_bootctl block_device:dir { open read search };
++allow hal_bootctl_server block_device:dir { open read search };
+ 
+ # Allow boot_control_hal to get attributes on all the A/B partitions.
+-allow hal_bootctl {
++allow hal_bootctl_server {
+   custom_ab_block_device
+   xbl_block_device
+   boot_block_device
+@@ -45,25 +45,25 @@ allow hal_bootctl {
+ }:blk_file { getattr };
+ 
+ # Allow the boot_control_hal to edit the attributes stored in the GPT.
+-allow hal_bootctl gpt_block_device:blk_file rw_file_perms;
+-allow hal_bootctl root_block_device:blk_file rw_file_perms;
++allow hal_bootctl_server gpt_block_device:blk_file rw_file_perms;
++allow hal_bootctl_server root_block_device:blk_file rw_file_perms;
+ 
+ # Allow boot_control_hal to access /dev/sgN devices (generic SCSI) to write the
+ # A/B slot selection for the XBL partition. Allow also to issue a
+ # UFS_IOCTL_QUERY ioctl.
+-allow hal_bootctl sg_device:chr_file rw_file_perms;
++allow hal_bootctl_server sg_device:chr_file rw_file_perms;
+ 
+ # The sys_rawio denial message is benign, and shows up due to a capability()
+ # call made by the scsi driver to check for CAP_SYS_RAWIO. Not having this
+ # does not result in a error
+-dontaudit hal_bootctl self:capability sys_rawio;
++dontaudit hal_bootctl_server self:capability sys_rawio;
+ 
+ # Read the sysfs to lookup what /dev/sgN device
+ # corresponds to the XBL partitions.
+-allow hal_bootctl sysfs_scsi_target:dir r_dir_perms;
++allow hal_bootctl_server sysfs_scsi_target:dir r_dir_perms;
+ 
+ # Allow boot_control_hal to write to the XBL devices.
+-allow hal_bootctl xbl_block_device:blk_file rw_file_perms;
++allow hal_bootctl_server xbl_block_device:blk_file rw_file_perms;
+ 
+ # Read dir permission for dt_firmware
+-allow hal_bootctl sysfs_dt_firmware_android:dir r_dir_perms;
++allow hal_bootctl_server sysfs_dt_firmware_android:dir r_dir_perms;

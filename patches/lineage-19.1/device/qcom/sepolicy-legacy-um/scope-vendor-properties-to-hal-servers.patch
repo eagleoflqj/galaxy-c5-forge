@@ -1,0 +1,136 @@
+The C5 loads its HAL services in vendor processes. On non-Treble products the generic HAL attributes also include clients. Grant vendor-specific property operations to the corresponding servers.
+
+diff --git a/legacy/vendor/common/hal_bluetooth_qti.te b/legacy/vendor/common/hal_bluetooth_qti.te
+index 5b4e4aa..0358af4 100644
+--- a/legacy/vendor/common/hal_bluetooth_qti.te
++++ b/legacy/vendor/common/hal_bluetooth_qti.te
+@@ -32,7 +32,7 @@ type hal_bluetooth_qti_exec, exec_type, vendor_file_type, file_type;
+ init_daemon_domain(hal_bluetooth_qti)
+ 
+ # bluetooth properties
+-set_prop(hal_bluetooth, vendor_bluetooth_prop)
++set_prop(hal_bluetooth_server, vendor_bluetooth_prop)
+ 
+ r_dir_file(hal_bluetooth_qti, firmware_file)
+ 
+diff --git a/legacy/vendor/common/hal_camera.te b/legacy/vendor/common/hal_camera.te
+index 30421bb..a99dddc 100644
+--- a/legacy/vendor/common/hal_camera.te
++++ b/legacy/vendor/common/hal_camera.te
+@@ -32,7 +32,7 @@ allow hal_camera qdisplay_service:service_manager find;
+ #binder_use(hal_camera)
+ #')
+ binder_call(hal_camera, surfaceflinger)
+-set_prop(hal_camera, camera_prop)
++set_prop(hal_camera_server, camera_prop)
+ allow hal_camera gpu_device:chr_file rw_file_perms;
+ 
+ allow hal_camera sysfs_jpeg:file r_file_perms;
+diff --git a/legacy/vendor/common/hal_display_color.te b/legacy/vendor/common/hal_display_color.te
+index 8efc856..364433f 100644
+--- a/legacy/vendor/common/hal_display_color.te
++++ b/legacy/vendor/common/hal_display_color.te
+@@ -52,4 +52,4 @@ add_hwservice(hal_display_color_server, hal_display_postproc_hwservice)
+ allow hal_display_postproc_client hal_display_postproc_hwservice:hwservice_manager find;
+ 
+ # Set vendor_qdcmss property
+-set_prop(hal_display_color, vendor_qdcmss_prop);
++set_prop(hal_display_color_server, vendor_qdcmss_prop);
+diff --git a/legacy/vendor/common/hal_factory_qti_default.te b/legacy/vendor/common/hal_factory_qti_default.te
+index 0de46e1..ddfda26 100755
+--- a/legacy/vendor/common/hal_factory_qti_default.te
++++ b/legacy/vendor/common/hal_factory_qti_default.te
+@@ -31,7 +31,7 @@ hal_server_domain(vendor_hal_factory_qti_default, vendor_hal_factory_qti)
+ type vendor_hal_factory_qti_default_exec, exec_type, vendor_file_type, file_type;
+ init_daemon_domain(vendor_hal_factory_qti_default)
+ 
+-set_prop(vendor_hal_factory_qti, vendor_ctl_vendor_mmid_prop)
++set_prop(vendor_hal_factory_qti_server, vendor_ctl_vendor_mmid_prop)
+ 
+ # Allow read/write to mmi socket
+ allow vendor_hal_factory_qti vendor_mmi_socket:sock_file rw_file_perms;
+diff --git a/legacy/vendor/common/hal_gnss_qti.te b/legacy/vendor/common/hal_gnss_qti.te
+index 2686435..25f7e05 100644
+--- a/legacy/vendor/common/hal_gnss_qti.te
++++ b/legacy/vendor/common/hal_gnss_qti.te
+@@ -61,7 +61,7 @@ allowxperm hal_gnss self:{ socket qipcrtr_socket } ioctl msm_sock_ipc_ioctls;
+ 
+ userdebug_or_eng(`
+   diag_use(hal_gnss);
+-  get_prop(hal_gnss, vendor_pd_locater_dbg_prop)
++  get_prop(hal_gnss_server, vendor_pd_locater_dbg_prop)
+ ')
+ use_vendor_per_mgr(hal_gnss)
+ 
+diff --git a/legacy/vendor/common/hal_nfc.te b/legacy/vendor/common/hal_nfc.te
+index 919d646..a6ec289 100644
+--- a/legacy/vendor/common/hal_nfc.te
++++ b/legacy/vendor/common/hal_nfc.te
+@@ -26,7 +26,7 @@
+ #IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ 
+ # Set NFC properties
+-set_prop(hal_nfc, vendor_nfc_nq_prop)
++set_prop(hal_nfc_server, vendor_nfc_nq_prop)
+ 
+ #Allow access to firmware
+ allow hal_nfc firmware_file:dir r_dir_perms;
+diff --git a/legacy/vendor/common/hal_perf_default.te b/legacy/vendor/common/hal_perf_default.te
+index cfb95f2..da38779 100644
+--- a/legacy/vendor/common/hal_perf_default.te
++++ b/legacy/vendor/common/hal_perf_default.te
+@@ -41,7 +41,7 @@ allow hal_perf_client hal_perf_hwservice:hwservice_manager find;
+ allow hal_perf_default cgroup:file r_file_perms;
+ allow hal_perf_default proc:file rw_file_perms;
+ allow hal_perf device_latency:chr_file rw_file_perms;
+-get_prop(hal_perf, vendor_freq_prop)
++get_prop(hal_perf_server, vendor_freq_prop)
+ get_prop(hal_perf, vendor_mpctl_prop)
+ allow hal_perf_default mpctl_data_file:dir rw_dir_perms;
+ allow hal_perf_default mpctl_data_file:file create_file_perms;
+diff --git a/legacy/vendor/common/hal_sensors.te b/legacy/vendor/common/hal_sensors.te
+index a9a25c4..16729a2 100644
+--- a/legacy/vendor/common/hal_sensors.te
++++ b/legacy/vendor/common/hal_sensors.te
+@@ -31,7 +31,7 @@ userdebug_or_eng(`
+     get_prop(hal_sensors_default, vendor_sensors_dbg_prop)
+     allow hal_sensors debugfs_tracing:file { open write };
+ ')
+-set_prop(hal_sensors, vendor_slpi_prop);
++set_prop(hal_sensors_server, vendor_slpi_prop);
+ allow hal_sensors self:{ socket qipcrtr_socket } create_socket_perms;
+ allowxperm hal_sensors self:{ socket qipcrtr_socket } ioctl msm_sock_ipc_ioctls;
+ 
+diff --git a/legacy/vendor/common/hal_usb_gadget_qti.te b/legacy/vendor/common/hal_usb_gadget_qti.te
+index 773609f..2ad7440 100644
+--- a/legacy/vendor/common/hal_usb_gadget_qti.te
++++ b/legacy/vendor/common/hal_usb_gadget_qti.te
+@@ -31,8 +31,8 @@ hal_server_domain(hal_usb_gadget_qti, hal_usb_gadget)
+ type hal_usb_gadget_qti_exec, exec_type, vendor_file_type, file_type;
+ init_daemon_domain(hal_usb_gadget_qti)
+ 
+-get_prop(hal_usb_gadget, vendor_usb_prop)
+-set_prop(hal_usb_gadget, vendor_usb_prop)
++get_prop(hal_usb_gadget_server, vendor_usb_prop)
++set_prop(hal_usb_gadget_server, vendor_usb_prop)
+ 
+ allow hal_usb_gadget configfs:file create_file_perms;
+ allow hal_usb_gadget sysfs_usbpd_device:dir r_dir_perms;
+diff --git a/legacy/vendor/common/wigighalsvc.te b/legacy/vendor/common/wigighalsvc.te
+index ebbf746..2d026ce 100644
+--- a/legacy/vendor/common/wigighalsvc.te
++++ b/legacy/vendor/common/wigighalsvc.te
+@@ -42,11 +42,11 @@ allow hal_wigig_client hal_wigig_hwservice:hwservice_manager find;
+ add_hwservice(hal_wigig, hal_wigig_hwservice)
+ 
+ # allow start/stop services via ctl.start and ctl.stop
+-set_prop(hal_wigig, vendor_ctl_vendor_wigigsvc_prop)
++set_prop(hal_wigig_server, vendor_ctl_vendor_wigigsvc_prop)
+ 
+ # access wigig properties
+ # need to write vendor.wigig.driver/read vendor.wigig.driver.probed
+-set_prop(hal_wigig, vendor_wigig_prop);
++set_prop(hal_wigig_server, vendor_wigig_prop);
+ 
+ # access wifi vendor data files
+ r_dir_file(hal_wigig, wifi_vendor_data_file)

@@ -20,16 +20,15 @@ check_boot_header() {
   echo "Boot header uses device-verified ramdisk and tags addresses: $image"
 }
 
-check_android11_image() {
-  local image=$1 ramdisk=$2 inputs=$3
+check_partition_boot_image() {
+  local image=$1 ramdisk=$2 inputs=$3 expected_os=$4
   local size offset=2048 i
   local -a fields files lengths
-  # The legacy header packs Android 11.0.0 and the 2024-02 patch month in one word.
   read -r -a fields < <(od --endian=little -An -j8 -N40 -tu4 -w40 "$image")
   if [[ $(head -c8 "$image") != 'ANDROID!' || ${#fields[@]} != 10 ]] ||
       (( fields[1] != 0x80008000 || fields[4] != 0 || fields[7] != 2048 ||
-         fields[9] != (11 << 25 | 24 << 4 | 2) )); then
-    echo "Unexpected C5 Android 11 header in $image" >&2
+         fields[9] != expected_os )); then
+    echo "Unexpected C5 boot image header in $image" >&2
     return 1
   fi
   check_boot_header "$image" || return 1
@@ -628,7 +627,7 @@ check_sensor_output() {
   local bionic="$system_dir/lib"
   case "$lineage_version" in
     17.1) bionic="$system_dir/apex/com.android.runtime.release/lib/bionic" ;;
-    18.1) bionic="$system_dir/apex/com.android.runtime/lib/bionic" ;;
+    18.1|19.1) bionic="$system_dir/apex/com.android.runtime/lib/bionic" ;;
   esac
   providers=(
     "$system_dir/lib/liblog.so"
@@ -715,7 +714,7 @@ check_recovery_param_policy_output() {
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/build.sh --workdir /absolute/android-work --target recovery|rom|images [--lineage-version 16.0|17.1|18.1] [--jobs N] [--installclean]
+Usage: ./scripts/build.sh --workdir /absolute/android-work --target recovery|rom|images [--lineage-version 16.0|17.1|18.1|19.1] [--jobs N] [--installclean]
 
 Builds the selected target in the matching pinned LineageOS container. It does
 not flash, boot, or otherwise communicate with a device. When the version is
@@ -781,6 +780,9 @@ if [[ -z "$lineage_version" ]]; then
     c7b3d4b65b79e2e0d6a891547ad138e1fcdafb56)
       lineage_version=17.1
       ;;
+    cbe1696822ac0165e00c64b89af3dc3190204893)
+      lineage_version=19.1
+      ;;
     75e412bbb78aa0009405f696d0d3775e995e64ca)
       lineage_version=18.1
       ;;
@@ -790,17 +792,33 @@ if [[ -z "$lineage_version" ]]; then
       ;;
   esac
 fi
-if [[ "$lineage_version" == 18.1 ]]; then
+if [[ "$lineage_version" == 18.1 || "$lineage_version" == 19.1 ]]; then
+  # Legacy BOOT headers encode the platform version and security patch month.
+  if [[ "$lineage_version" == 19.1 ]]; then
+    expected_os=$((12 << 25 | 25 << 4 | 3))
+    sdk=32
+    kernel_hash=lineage-19.1.sha256
+  else
+    expected_os=$((11 << 25 | 24 << 4 | 2))
+    sdk=30
+    kernel_hash=baseline.sha256
+  fi
   case "$target" in
     images) goals=(bootimage systemimage recoveryimage) ;;
     recovery) goals=(recoveryimage) ;;
-    *) echo "Use --target images or recovery for LineageOS 18.1" >&2; exit 2 ;;
+    *) echo "Use --target images or recovery for LineageOS $lineage_version" >&2; exit 2 ;;
   esac
   workdir=$(realpath -e -- "$workdir")
   root=$(dirname -- "$workdir")
   output="$root/android-out"
   product_out="$output/target/product/c5lte"
   mkdir -p "$output" "$root/build-home" "$root/tmp" "$root/logs" "$workdir/out"
+  bootstrap_mount=()
+  if [[ "$lineage_version" == 19.1 ]]; then
+    # Android 12 Blueprint also looks up its bootstrap glob file from the source root.
+    mkdir -p "$workdir/.bootstrap" "$output/soong/.bootstrap"
+    bootstrap_mount=(--bind "$output/soong/.bootstrap" /android/.bootstrap)
+  fi
   for dir in "$workdir" "$output" "$root/tmp" "$root/build-home"; do
     case "$(findmnt -no FSTYPE -T "$dir")" in
       tmpfs|ramfs|'') echo "Select a disk-backed build directory: $dir" >&2; exit 2 ;;
@@ -809,12 +827,12 @@ if [[ "$lineage_version" == 18.1 ]]; then
   boot_inputs="$workdir/vendor/samsung/c5lte/boot"
   (
     cd "$boot_inputs"
+    sha256sum -c "$project_dir/kernel/config/$kernel_hash"
     sha256sum -c - <<'HASHES'
-eaead9f9166a04e28b84d0cf8beef54661b99a34422a14d596d989050fdff347  Image.gz
 f1d856f49b89eac54aaa0f5ca69091112297913e5611372c8affbc7d3168ee96  dt.img
 HASHES
   )
-  "${project_dir}/scripts/apply-patches.sh" --workdir "$workdir" --lineage-version 18.1
+  "${project_dir}/scripts/apply-patches.sh" --workdir "$workdir" --lineage-version "$lineage_version"
   # The build shell expands its own positional arguments inside the namespace.
   # shellcheck disable=SC2016
   bwrap --unshare-all --new-session --die-with-parent \
@@ -823,6 +841,7 @@ HASHES
     --symlink ../proc/self/mounts /etc/mtab --remount-ro /etc --proc /proc --dev /dev \
     --bind "$root/tmp" /tmp --bind "$root/build-home" /build-home \
     --ro-bind "$workdir" /android --bind "$output" /android/out \
+    "${bootstrap_mount[@]}" \
     --chdir /android --clearenv --setenv PATH /usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     --setenv HOME /build-home --setenv LANG en_US.UTF-8 --setenv LC_ALL en_US.UTF-8 \
     --setenv BUILD_USERNAME forge --setenv BUILD_HOSTNAME galaxy-c5-forge \
@@ -833,14 +852,15 @@ HASHES
       jobs=$1
       shift 2
       m -j"$jobs" "$@"
-    ' bash "$jobs" "$installclean" "${goals[@]}" 2>&1 | tee "$root/logs/build-18.1-$(date -u +%Y%m%dT%H%M%SZ).log"
-  check_android11_image "$product_out/recovery.img" "$product_out/ramdisk-recovery.img" "$boot_inputs"
+    ' bash "$jobs" "$installclean" "${goals[@]}" 2>&1 | tee "$root/logs/build-${lineage_version}-$(date -u +%Y%m%dT%H%M%SZ).log"
+  check_partition_boot_image "$product_out/recovery.img" "$product_out/ramdisk-recovery.img" "$boot_inputs" "$expected_os"
   recovery_root="$product_out/recovery/root"
   for file in prop.default init.recovery.qcom.rc system/bin/recovery system/bin/adbd system/etc/recovery.fstab; do
     gzip -dc "$product_out/ramdisk-recovery.img" | cpio -i --quiet --to-stdout "$file" | cmp - "$recovery_root/$file"
   done
-  grep -Fxq 'ro.build.version.sdk=30' "$recovery_root/prop.default"
-  grep -Eq '^ro.lineage.version=18\.1-.*-c5lte$' "$recovery_root/prop.default"
+  grep -Fxq "ro.build.version.sdk=$sdk" "$recovery_root/prop.default"
+  recovery_version=$(sed -n 's/^ro.lineage.version=//p' "$recovery_root/prop.default")
+  [[ "$recovery_version" == "$lineage_version"-*-c5lte ]]
   grep -Fxq '    setprop sys.usb.configfs 1' "$recovery_root/init.recovery.qcom.rc"
   grep -Fxq '    setprop sys.usb.controller msm_hsusb' "$recovery_root/init.recovery.qcom.rc"
   for partition in boot system recovery; do
@@ -850,7 +870,7 @@ HASHES
   if [[ "$target" == recovery ]]; then
     exit 0
   fi
-  check_android11_image "$product_out/boot.img" "$product_out/ramdisk.img" "$boot_inputs"
+  check_partition_boot_image "$product_out/boot.img" "$product_out/ramdisk.img" "$boot_inputs" "$expected_os"
   check_gnss_output "$product_out/system"
   if [[ ! -s "$product_out/system/lib/libhwbinder.so" ||
         ! -s "$product_out/system/lib64/libhwbinder.so" ||
@@ -867,24 +887,41 @@ HASHES
   )
   check_sensor_output "$product_out/system"
   check_camera_output "$product_out/system"
+  if [[ "$lineage_version" == 19.1 ]] && {
+    [[ ! -s "$product_out/system/lib/hw/camera.msm8952.so" ]] ||
+      grep -Eq '^(ro\.hardware\.camera=vendor\.msm8952|persist\.camera\.HAL3\.enabled=1)$' "$product_out/system/build.prop" "$product_out/system/vendor/build.prop"
+  }; then
+    echo "The C5 camera requires the msm8952 HAL1 wrapper and the stock HAL1 configuration" >&2
+    exit 1
+  fi
+  if [[ "$lineage_version" == 19.1 ]]; then
+    (cd "$product_out/system/vendor/lib" && sha256sum --check - <<'HASH'
+7f9aa04342e7d3007e61c2878a5b4b753655e8be616f57ac911d4b1d7e5e70e2  libmmqjpeg_codec.so
+HASH
+    )
+  fi
   check_fingerprint_output "$product_out/system" com.android.runtime
-  # The old device manifest and the Android 11 service fragments must load together.
+  # The old device manifest and the Android service fragments must load together.
   vintf_dir="$product_out/system/vendor/etc/vintf"
   vendor_manifests=("$vintf_dir/manifest.xml" "$vintf_dir"/manifest/*.xml)
   "$output/host/linux-x86/bin/assemble_vintf" -i "$(IFS=:; echo "${vendor_manifests[*]}")" -o /dev/null
   vendor_dir="$product_out/system/vendor"
+  if [[ "$lineage_version" == 19.1 ]] && ! grep -Fxq 'ro.product.first_api_level=23' "$vendor_dir/build.prop"; then
+    echo "Missing C5 launch API level in vendor/build.prop; ueventd needs it to load the device rules" >&2
+    exit 1
+  fi
   if [[ ! -x "$vendor_dir/bin/hw/android.hardware.health@2.1-service" ||
         ! -s "$vendor_dir/lib64/hw/android.hardware.health@2.0-impl-2.1.so" ]] ||
       ! grep -Fq '/vendor/bin/hw/android.hardware.health@2.1-service' "$vendor_dir/etc/init/android.hardware.health@2.1-service.rc" ||
       ! grep -Fq '@2.1::IHealth/default' "$vintf_dir/manifest/android.hardware.health@2.1.xml"; then
-    echo "The Android 11 battery service requires the registered C5 Health HAL and its implementation" >&2
+    echo "The Android battery service requires the registered C5 Health HAL and its implementation" >&2
     exit 1
   fi
   sha256sum "$product_out/boot.img" "$product_out/system.img"
   exit 0
 fi
 if [[ "$lineage_version" != 16.0 && "$lineage_version" != 17.1 ]]; then
-  echo "--lineage-version must be 16.0, 17.1 or 18.1" >&2
+  echo "--lineage-version must be 16.0, 17.1, 18.1 or 19.1" >&2
   exit 2
 fi
 

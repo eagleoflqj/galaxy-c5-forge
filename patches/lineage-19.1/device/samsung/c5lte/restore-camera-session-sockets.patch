@@ -1,0 +1,8 @@
+--- /dev/null
++++ b/sepolicy/legacy_camera_socket.te
+@@ -0,0 +1,5 @@
++# CSA1 binds cam_socket1 and cam_socket2 in /data/misc/camera.
++allow mm-qcamerad camera_data_file:dir { search write add_name remove_name };
++allow mm-qcamerad camera_data_file:sock_file { create unlink setattr };
++allow hal_camera_default camera_data_file:dir search;
++allow hal_camera_default camera_data_file:sock_file write;

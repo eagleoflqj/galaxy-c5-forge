@@ -1,0 +1,25 @@
+Finish the pending cleanup job if the HIDL 2.1 HAL rejects enumeration synchronously.
+
+--- a/services/core/java/com/android/server/biometrics/sensors/fingerprint/hidl/FingerprintInternalEnumerateClient.java
++++ b/services/core/java/com/android/server/biometrics/sensors/fingerprint/hidl/FingerprintInternalEnumerateClient.java
+@@ -20,6 +20,7 @@
+ import android.content.Context;
+ import android.hardware.biometrics.BiometricsProtoEnums;
+ import android.hardware.biometrics.fingerprint.V2_1.IBiometricsFingerprint;
++import android.hardware.biometrics.fingerprint.V2_1.RequestStatus;
+ import android.hardware.fingerprint.Fingerprint;
+ import android.os.IBinder;
+ import android.os.RemoteException;
+@@ -49,7 +50,11 @@
+     @Override
+     protected void startHalOperation() {
+         try {
+-            getFreshDaemon().enumerate();
++            final int status = getFreshDaemon().enumerate();
++            if (status != RequestStatus.SYS_OK) {
++                Slog.w(TAG, "HAL rejected enumeration: " + status);
++                mCallback.onClientFinished(this, false /* success */);
++            }
+         } catch (RemoteException e) {
+             Slog.e(TAG, "Remote exception when requesting enumerate", e);
+             mCallback.onClientFinished(this, false /* success */);

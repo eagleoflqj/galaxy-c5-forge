@@ -1,0 +1,295 @@
+Initialize WCNSS power management before registering for Pronto notifications.
+Bluetooth can power-cycle Pronto before WLAN userspace opens the driver.
+
+--- a/drivers/soc/qcom/wcnss/wcnss_wlan.c
++++ b/drivers/soc/qcom/wcnss/wcnss_wlan.c
+@@ -361,7 +361,7 @@
+ 	struct vbatt_level vbatt;
+ };
+ 
+-static struct {
++static struct wcnss_env {
+ 	struct platform_device *pdev;
+ 	void		*pil;
+ 	struct resource	*mmio_res;
+@@ -2436,6 +2436,15 @@
+ 	wcnss_disable_pc_remove_req();
+ }
+ 
++static void wcnss_stop_pm_notifications(void)
++{
++	if (penv->wcnss_notif_hdle)
++		subsys_notif_unregister_notifier(penv->wcnss_notif_hdle, &wnb);
++	cancel_delayed_work_sync(&penv->wcnss_pm_qos_del_req);
++	wcnss_disable_pc_remove_req();
++	wakeup_source_trash(&penv->wcnss_wake_lock);
++}
++
+ static DECLARE_RWSEM(wcnss_pm_sem);
+ 
+ static void wcnss_nvbin_dnld(void)
+@@ -2819,7 +2828,7 @@
+ 		if (!penv->gpios_5wire) {
+ 			wcnss_log(ERR, "insufficient IO resources\n");
+ 			ret = -ENOENT;
+-			goto fail_gpio_res;
++			goto fail;
+ 		}
+ 		ret = wcnss_gpios_config(penv->gpios_5wire, true);
+ 	} else {
+@@ -2828,7 +2837,7 @@
+ 
+ 	if (ret) {
+ 		wcnss_log(ERR, "gpios config failed.\n");
+-		goto fail_gpio_res;
++		goto fail;
+ 	}
+ 
+ 	/* allocate resources */
+@@ -2848,9 +2857,6 @@
+ 	INIT_WORK(&penv->wcnssctrl_version_work, wcnss_send_version_req);
+ 	INIT_WORK(&penv->wcnss_pm_config_work, wcnss_send_pm_config);
+ 	INIT_WORK(&penv->wcnssctrl_nvbin_dnld_work, wcnss_nvbin_dnld_main);
+-	INIT_DELAYED_WORK(&penv->wcnss_pm_qos_del_req, wcnss_pm_qos_enable_pc);
+-
+-	wakeup_source_init(&penv->wcnss_wake_lock, "wcnss");
+ 	/* Add pm_qos request to disable power collapse for DDR */
+ 	wcnss_disable_pc_add_req();
+ 
+@@ -2862,7 +2868,7 @@
+ 			ret = -EIO;
+ 			wcnss_log(ERR, "%s: resource pronto_phy_base failed\n",
+ 			       __func__);
+-			goto fail_ioremap;
++			goto fail_res;
+ 		}
+ 		penv->msm_wcnss_base =
+ 			devm_ioremap_resource(&pdev->dev, res);
+@@ -2874,7 +2880,7 @@
+ 			ret = -EIO;
+ 			wcnss_log(ERR, "%s: resource riva_phy_base failed\n",
+ 			       __func__);
+-			goto fail_ioremap;
++			goto fail_res;
+ 		}
+ 		penv->msm_wcnss_base =
+ 			devm_ioremap_resource(&pdev->dev, res);
+@@ -2883,7 +2889,7 @@
+ 	if (!penv->msm_wcnss_base) {
+ 		ret = -ENOMEM;
+ 		wcnss_log(ERR, "%s: ioremap wcnss physical failed\n", __func__);
+-		goto fail_ioremap;
++		goto fail_res;
+ 	}
+ 
+ 	penv->wlan_config.msm_wcnss_base = penv->msm_wcnss_base;
+@@ -2895,7 +2901,7 @@
+ 			ret = -EIO;
+ 			wcnss_log(ERR, "%s: resource riva_ccu_base failed\n",
+ 			       __func__);
+-			goto fail_ioremap;
++			goto fail_res;
+ 		}
+ 		penv->riva_ccu_base =
+ 			devm_ioremap_resource(&pdev->dev, res);
+@@ -2904,7 +2910,7 @@
+ 			ret = -ENOMEM;
+ 			wcnss_log(ERR, "%s: ioremap riva ccu physical failed\n",
+ 			       __func__);
+-			goto fail_ioremap;
++			goto fail_res;
+ 		}
+ 	} else {
+ 		res = platform_get_resource_byname(pdev,
+@@ -2914,7 +2920,7 @@
+ 			ret = -EIO;
+ 			wcnss_log(ERR, "%s: resource pronto_a2xb_base failed\n",
+ 			       __func__);
+-			goto fail_ioremap;
++			goto fail_res;
+ 		}
+ 		penv->pronto_a2xb_base =
+ 			devm_ioremap_resource(&pdev->dev, res);
+@@ -2923,7 +2929,7 @@
+ 			ret = -ENOMEM;
+ 			wcnss_log(ERR,
+ 			"%s: ioremap pronto a2xb physical failed\n", __func__);
+-			goto fail_ioremap;
++			goto fail_res;
+ 		}
+ 
+ 		res = platform_get_resource_byname(pdev,
+@@ -2933,7 +2939,7 @@
+ 			ret = -EIO;
+ 			wcnss_log(ERR, "%s: resource pronto_ccpu_base failed\n",
+ 			       __func__);
+-			goto fail_ioremap;
++			goto fail_res;
+ 		}
+ 		penv->pronto_ccpu_base =
+ 			devm_ioremap_resource(&pdev->dev, res);
+@@ -2942,7 +2948,7 @@
+ 			ret = -ENOMEM;
+ 			wcnss_log(ERR,
+ 			"%s: ioremap pronto ccpu physical failed\n", __func__);
+-			goto fail_ioremap;
++			goto fail_res;
+ 		}
+ 
+ 		/* for reset FIQ */
+@@ -2951,7 +2957,7 @@
+ 		if (!res) {
+ 			wcnss_log(ERR, "insufficient irq mem resources\n");
+ 			ret = -ENOENT;
+-			goto fail_ioremap;
++			goto fail_res;
+ 		}
+ 		penv->fiq_reg = ioremap_nocache(res->start, resource_size(res));
+ 		if (!penv->fiq_reg) {
+@@ -2959,7 +2965,7 @@
+ 			"ioremap_nocache() failed fiq_reg addr:%pr\n",
+ 			&res->start);
+ 			ret = -ENOMEM;
+-			goto fail_ioremap;
++			goto fail_res;
+ 		}
+ 
+ 		res = platform_get_resource_byname(pdev,
+@@ -3169,9 +3175,6 @@
+ 
+ 	if (IS_ERR(penv->pil)) {
+ 		wcnss_reset_fiq(false);
+-		if (penv->wcnss_notif_hdle)
+-			subsys_notif_unregister_notifier(penv->wcnss_notif_hdle,
+-							 &wnb);
+ 		penv->pil = NULL;
+ 		goto fail_ioremap2;
+ 	}
+@@ -3183,8 +3186,6 @@
+ fail_ioremap2:
+ 	if (penv->fiq_reg)
+ 		iounmap(penv->fiq_reg);
+-fail_ioremap:
+-	wakeup_source_trash(&penv->wcnss_wake_lock);
+ fail_res:
+ 	if (!has_pronto_hw)
+ 		wcnss_gpios_config(penv->gpios_5wire, false);
+@@ -3192,11 +3193,8 @@
+ 		wcnss_pinctrl_set_state(false);
+ 	else
+ 		wcnss_pronto_gpios_config(pdev, false);
+-fail_gpio_res:
+-	wcnss_disable_pc_remove_req();
+ fail:
+-	if (penv->wcnss_notif_hdle)
+-		subsys_notif_unregister_notifier(penv->wcnss_notif_hdle, &wnb);
++	wcnss_stop_pm_notifications();
+ 	penv = NULL;
+ 	return ret;
+ }
+@@ -3547,16 +3545,16 @@
+ 	return -ENOMEM;
+ }
+ 
+-static void wcnss_cdev_unregister(struct platform_device *pdev)
++static void wcnss_cdev_unregister(struct wcnss_env *env)
+ {
+ 	wcnss_log(ERR, "Unregistering cdev devices\n");
+-	cdev_del(&penv->ctrl_dev);
+-	cdev_del(&penv->node_dev);
+-	device_destroy(penv->node_class, penv->dev_ctrl);
+-	device_destroy(penv->node_class, penv->dev_node);
+-	class_destroy(penv->node_class);
+-	unregister_chrdev_region(penv->dev_ctrl, 1);
+-	unregister_chrdev_region(penv->dev_node, 1);
++	cdev_del(&env->ctrl_dev);
++	cdev_del(&env->node_dev);
++	device_destroy(env->node_class, env->dev_ctrl);
++	device_destroy(env->node_class, env->dev_node);
++	class_destroy(env->node_class);
++	unregister_chrdev_region(env->dev_ctrl, 1);
++	unregister_chrdev_region(env->dev_node, 1);
+ }
+ 
+ static int
+@@ -3580,24 +3578,11 @@
+ 	penv->user_cal_data =
+ 		devm_kzalloc(&pdev->dev, MAX_CALIBRATED_DATA_SIZE, GFP_KERNEL);
+ 	if (!penv->user_cal_data) {
++		penv = NULL;
+ 		wcnss_log(ERR, "Failed to alloc memory for cal data.\n");
+ 		return -ENOMEM;
+ 	}
+ 
+-	/* register sysfs entries */
+-	ret = wcnss_create_sysfs(&pdev->dev);
+-	if (ret) {
+-		penv = NULL;
+-		return -ENOENT;
+-	}
+-
+-	/* register wcnss event notification */
+-	penv->wcnss_notif_hdle = subsys_notif_register_notifier("wcnss", &wnb);
+-	if (IS_ERR(penv->wcnss_notif_hdle)) {
+-		wcnss_log(ERR, "register event notification failed!\n");
+-		return PTR_ERR(penv->wcnss_notif_hdle);
+-	}
+-
+ 	mutex_init(&penv->dev_lock);
+ 	mutex_init(&penv->ctrl_lock);
+ 	mutex_init(&penv->vbat_monitor_mutex);
+@@ -3609,6 +3594,24 @@
+ 	penv->user_cal_exp_size = 0;
+ 	penv->user_cal_available = false;
+ 
++	/* Bluetooth may power down Pronto before the WLAN node is opened. */
++	INIT_DELAYED_WORK(&penv->wcnss_pm_qos_del_req, wcnss_pm_qos_enable_pc);
++	wakeup_source_init(&penv->wcnss_wake_lock, "wcnss");
++
++	/* register sysfs entries */
++	ret = wcnss_create_sysfs(&pdev->dev);
++	if (ret)
++		goto stop_pm;
++
++	/* register wcnss event notification */
++	penv->wcnss_notif_hdle = subsys_notif_register_notifier("wcnss", &wnb);
++	if (IS_ERR(penv->wcnss_notif_hdle)) {
++		wcnss_log(ERR, "register event notification failed!\n");
++		ret = PTR_ERR(penv->wcnss_notif_hdle);
++		penv->wcnss_notif_hdle = NULL;
++		goto remove_sysfs;
++	}
++
+ 	/* Since we were built into the kernel we'll be called as part
+ 	 * of kernel initialization.  We don't know if userspace
+ 	 * applications are available to service PIL at this time
+@@ -3619,15 +3622,25 @@
+ 	 */
+ 	wcnss_log(INFO, DEVICE " probed in built-in mode\n");
+ 
+-	return wcnss_cdev_register(pdev);
++	platform_set_drvdata(pdev, penv);
++	ret = wcnss_cdev_register(pdev);
++	if (!ret)
++		return 0;
++
++remove_sysfs:
++	wcnss_remove_sysfs(&pdev->dev);
++stop_pm:
++	wcnss_stop_pm_notifications();
++	penv = NULL;
++	return ret;
+ }
+ 
+ static int
+ wcnss_wlan_remove(struct platform_device *pdev)
+ {
+-	if (penv->wcnss_notif_hdle)
+-		subsys_notif_unregister_notifier(penv->wcnss_notif_hdle, &wnb);
+-	wcnss_cdev_unregister(pdev);
++	wcnss_cdev_unregister(platform_get_drvdata(pdev));
++	if (penv)
++		wcnss_stop_pm_notifications();
+ 	wcnss_remove_sysfs(&pdev->dev);
+ 	penv = NULL;
+ 	return 0;

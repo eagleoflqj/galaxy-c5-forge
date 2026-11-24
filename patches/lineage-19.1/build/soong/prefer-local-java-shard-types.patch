@@ -1,0 +1,16 @@
+Give javac shards the same source-type precedence as an unsharded build. The C5 camera additions move HwAudioSource into a different shard from AudioPatch. Dependency jars expose same-named AIDL fields while the framework class exposes methods. Keep the combined header in its original fallback position for other dependencies.
+
+Upstream implementation: https://android.googlesource.com/platform/build/soong/+/7309742728063ebea25eff41df6ce0483fbe7f84/java/base.go
+
+--- a/java/base.go
++++ b/java/base.go
+@@ -984,6 +984,9 @@
+ 		}
+ 
+ 		if enableSharding {
++			// A shard must see this module's source types before same-named dependency classes.
++			localHeader := android.PathForModuleOut(ctx, "turbine", jarName)
++			flags.classpath = append(classpath{localHeader}, flags.classpath...)
+ 			flags.classpath = append(flags.classpath, headerJarFileWithoutJarjar)
+ 			shardSize := int(*(j.properties.Javac_shard_size))
+ 			var shardSrcs []android.Paths

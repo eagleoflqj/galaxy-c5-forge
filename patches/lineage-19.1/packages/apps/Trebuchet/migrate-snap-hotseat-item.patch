@@ -1,0 +1,33 @@
+Retain an existing Snap camera hotseat item when upgrading the C5 to
+the system Camera2 app. Resolve the replacement for the shortcut's own
+profile, retaining its ID and position. Leave customized layouts alone.
+
+Related report (Snap icon disappearance with a different cause):
+https://gitlab.com/LineageOS/issues/android/-/issues/4295
+
+diff --git a/src/com/android/launcher3/model/LoaderTask.java b/src/com/android/launcher3/model/LoaderTask.java
+index 2a0f9a6..2c0ad55 100644
+--- a/src/com/android/launcher3/model/LoaderTask.java
++++ b/src/com/android/launcher3/model/LoaderTask.java
+@@ -473,6 +473,21 @@ public class LoaderTask implements Runnable {
+                             boolean validTarget = TextUtils.isEmpty(targetPkg) ||
+                                     mLauncherApps.isPackageEnabled(targetPkg, c.user);
+ 
++                            // Snap was replaced by Camera2 on the C5's 18.1 to 19.1 upgrade.
++                            if (!validTarget && c.itemType == LauncherSettings.Favorites.ITEM_TYPE_APPLICATION
++                                    && c.container == LauncherSettings.Favorites.CONTAINER_HOTSEAT
++                                    && cn != null && "org.lineageos.snap".equals(targetPkg)
++                                    && "com.android.camera.CameraLauncher".equals(cn.getClassName())) {
++                                Intent replacement = pmHelper.getAppLaunchIntent("com.android.camera2", c.user);
++                                if (replacement != null) {
++                                    intent = replacement;
++                                    cn = intent.getComponent();
++                                    targetPkg = cn.getPackageName();
++                                    c.updater().put(LauncherSettings.Favorites.INTENT, intent.toUri(0)).commit();
++                                    validTarget = true;
++                                }
++                            }
++
+                             // If it's a deep shortcut, we'll use pinned shortcuts to restore it
+                             if (cn != null && validTarget && c.itemType
+                                     != LauncherSettings.Favorites.ITEM_TYPE_DEEP_SHORTCUT) {

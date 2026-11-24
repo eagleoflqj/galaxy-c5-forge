@@ -1,6 +1,24 @@
 # Galaxy C5 Forge
 
-Galaxy C5 Forge runs LineageOS 17.1 and 18.1 on the Samsung Galaxy C5 SM-C5000 (c5lte) with Linux 4.9. The device tests used a Rev09 handset with the CSA1 bootloader.
+Galaxy C5 Forge runs LineageOS 17.1, 18.1 and 19.1 on the Samsung Galaxy C5 SM-C5000 (c5lte) with Linux 4.9. The device tests used a Rev09 handset with the CSA1 bootloader.
+
+## LineageOS 19.1 for the SM-C5000
+
+Build `19.1-20261123-UNOFFICIAL-c5lte` runs Android 12L (API 32) and Linux 4.9.337. On the Rev09 SM-C5000 with the CSA1 bootloader, upgrading from 18.1 preserved installed apps and the existing fingerprint enrollment. Back up your data and original BOOT, SYSTEM and RECOVERY before upgrading.
+
+Download the three images and `SHA256SUMS` from the [19.1 release](https://github.com/eagleoflqj/galaxy-c5-forge/releases/tag/19.1.20261123). BOOT and RECOVERY are compact images for their respective partitions. Verify the downloads with `sha256sum -c SHA256SUMS`, then decompress the raw ext4 SYSTEM image with `gzip -dk lineage-19.1-20261123-c5lte-system.img.gz`. Allow at least 3,196,059,648 bytes free for the decompressed image.
+
+| Uncompressed image | Bytes | SHA-256 |
+|---|---:|---|
+| BOOT | 12,261,392 | `1af93a75478833653c010f461e3499ab71860cb33244461b7046d30d8101d337` |
+| SYSTEM | 3,196,059,648 | `11f53e19bd6b820fe3aecd9e121c4529cfdc1754c679fa2d7d2a5d99fb7bf7fd` |
+| RECOVERY | 21,170,192 | `821a71330c886082b923c9e442836c03e86b5a1c33de542c32e438efdc14118e` |
+
+Device tests during the 19.1 port covered fingerprint unlock, navigation keys, display wake, automatic brightness, rotation, proximity, step counting, vibration and notification lights. Both cameras took photos and recorded video, including a separate rear HDR photo test. The speaker, microphone, wired headphones, Bluetooth media and two-way headset audio worked. NFC delivered a tag to a foreground app. ADB, MTP, PTP, USB MIDI, RNDIS and power-key startup from the off-mode charging screen were tested.
+
+On the final SYSTEM, outdoor GPS acquired a fresh fix in 16.318 seconds with up to 19 satellites visible. During a 171-second screen-off battery test the phone spent 97 seconds suspended. Local Wi-Fi traffic succeeded after wake. Android's framework thermal HAL was unavailable. USB accessory audio coverage was limited to interface negotiation. Cellular calls and data, OTG peripherals, microSD and 9 V charging were not tested.
+
+The final RECOVERY displayed version 19.1 (20261123), connected over secure ADB to the previously authorized host and booted back into Android. See the [Android 12L build instructions](docs/system-build.md#lineageos-191-source-preparation) to reproduce the images.
 
 ## LineageOS 18.1 for the SM-C5000
 

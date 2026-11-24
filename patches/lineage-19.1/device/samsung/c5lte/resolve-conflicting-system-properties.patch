@@ -1,0 +1,37 @@
+Android 12 validates conflicting property assignments. Keep the product fragments' values for the heap size, network mode and SIB16 support, which match the running 18.1 C5. Its non-split property build also filters the launch API level out of system/build.prop. Preserve that value in vendor/build.prop so ueventd loads the C5 device rules.
+
+diff --git a/system.prop b/system.prop
+index fb0d085..3a1b0e4 100644
+--- a/system.prop
++++ b/system.prop
+@@ -32,15 +32,9 @@ vendor.voice.path.for.pcm.voip=true
+ vendor.voice.playback.conc.disabled=true
+ vendor.voice.record.conc.disabled=false
+ 
+-#
+-# Set network mode to (T/L/G/W/1X/EVDO, T/G/W/L) for 7+5 mode device on DSDS mode
+-#
+-ro.telephony.default_network=9,1
+-
+ # Qcom patch RTSP keep video damaged au
+ rtsp.video.keep-damaged-au=video/3gp
+ 
+-persist.radio.sib16_support=0
+ persist.radio.snapshot_enabled=1
+ persist.radio.snapshot_timer=22
+ persist.radio.tdscdma_present=1
+@@ -59,7 +53,6 @@ debug.sf.hw=0
+ debug.egl.hw=0
+ persist.hwc.mdpcomp.enable=true
+ debug.mdpcomp.logs=0
+-dalvik.vm.heapsize=36m
+ dev.pm.dyn_samplingrate=1
+ persist.demo.hdmirotationlock=false
+ debug.enable.sglscale=1
+diff --git a/vendor.prop b/vendor.prop
+new file mode 100644
+--- /dev/null
++++ b/vendor.prop
+@@ -0,0 +1,2 @@
++# SM-C5000 shipped with Android 6.0.
++ro.product.first_api_level=23

@@ -1,0 +1,22 @@
+--- a/hci/src/hci_layer_android.cc
++++ b/hci/src/hci_layer_android.cc
+@@ -158,16 +158,10 @@
+ void hci_initialize() {
+   LOG_INFO("%s", __func__);
+ 
+-  btHci_1_1 = V1_1::IBluetoothHci::getService();
+-
+-  if (btHci_1_1 != nullptr) {
+-    btHci = btHci_1_1;
+-  } else {
+-    btHci = V1_0::IBluetoothHci::getService();
+-  }
+-
+-  // If android.hardware.bluetooth* is not found, Bluetooth can not continue.
++  // Both HIDL versions register the base interface under the same instance.
++  btHci = V1_0::IBluetoothHci::getService();
+   CHECK(btHci != nullptr);
++  btHci_1_1 = V1_1::IBluetoothHci::castFrom(btHci).withDefault(nullptr);
+   auto death_link = btHci->linkToDeath(bluetoothHciDeathRecipient, 0);
+   if (!death_link.isOk()) {
+     LOG_ERROR("%s: Unable to set the death recipient for the Bluetooth HAL",

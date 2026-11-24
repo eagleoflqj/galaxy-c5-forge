@@ -1,0 +1,37 @@
+Android 12L audio clients and the common service both support HIDL 4.0 through 7.0. Use their 4.0 adapters with the C5 legacy audio modules.
+
+--- a/product/audio.mk
++++ b/product/audio.mk
+@@ -6,9 +6,9 @@
+     audio_amplifier.msm8952
+ 
+ PRODUCT_PACKAGES += \
+-    android.hardware.audio@2.0-impl \
+-    android.hardware.audio@2.0-service \
+-    android.hardware.audio.effect@2.0-impl
++    android.hardware.audio@4.0-impl \
++    android.hardware.audio.service \
++    android.hardware.audio.effect@4.0-impl
+ 
+ PRODUCT_COPY_FILES += \
+     frameworks/native/data/etc/android.software.midi.xml:system/vendor/etc/permissions/android.software.midi.xml
+--- a/manifest.xml
++++ b/manifest.xml
+@@ -2,7 +2,7 @@
+     <hal format="hidl">
+         <name>android.hardware.audio</name>
+         <transport>hwbinder</transport>
+-        <version>2.0</version>
++        <version>4.0</version>
+         <interface>
+             <name>IDevicesFactory</name>
+             <instance>default</instance>
+@@ -11,7 +11,7 @@
+     <hal format="hidl">
+         <name>android.hardware.audio.effect</name>
+         <transport>hwbinder</transport>
+-        <version>2.0</version>
++        <version>4.0</version>
+         <interface>
+             <name>IEffectsFactory</name>
+             <instance>default</instance>

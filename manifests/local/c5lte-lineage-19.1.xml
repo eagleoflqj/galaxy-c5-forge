@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+  <project path="device/samsung/c5lte" name="vm03/android_device_samsung_c5lte" revision="5a5ee3ae766dfda573f6512223fa724279bafdab" upstream="refs/heads/lineage-16.0" />
+  <project path="hardware/samsung" name="LineageOS/android_hardware_samsung" revision="340c2b58099de516e76d33b1f10578e33df44f90" upstream="refs/heads/lineage-19.1" />
+  <project path="hardware/qcom-caf/msm8952/audio" name="LineageOS/android_hardware_qcom_audio" revision="c8f712cca75c74b9ef6583f85ecfe20f24c3376c" upstream="refs/heads/lineage-18.1-caf-msm8952" />
+  <project path="hardware/qcom-caf/msm8952/display" name="LineageOS/android_hardware_qcom_display" revision="a5643f0d566911d8f19b743b0b39dec27993397f" upstream="refs/heads/lineage-18.1-caf-msm8952" />
+  <project path="hardware/qcom-caf/msm8952/media" name="LineageOS/android_hardware_qcom_media" revision="7514c222b2e6f11ddaeb5dda2ab26083e2653bb1" upstream="refs/heads/lineage-18.1-caf-msm8952" />
+</manifest>

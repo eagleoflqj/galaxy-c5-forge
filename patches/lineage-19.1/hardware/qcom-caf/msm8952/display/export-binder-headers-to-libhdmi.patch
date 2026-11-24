@@ -1,0 +1,15 @@
+libhdmi includes the Binder interfaces through hwc_utils.h and QService.h. Consume the exported Binder headers and their Android 12 transitive includes for both ABIs.
+
+diff --git a/libhdmi/Android.mk b/libhdmi/Android.mk
+index df0127d..43c234f 100644
+--- a/libhdmi/Android.mk
++++ b/libhdmi/Android.mk
+@@ -7,7 +7,7 @@ LOCAL_VENDOR_MODULE           := true
+ LOCAL_MODULE_TAGS             := optional
+ LOCAL_SHARED_LIBRARIES        := $(common_libs) liboverlay libqdutils
+ LOCAL_CFLAGS                  := $(common_flags) -DLOG_TAG=\"qdhdmi\" -Wno-float-conversion
+-LOCAL_HEADER_LIBRARIES        := display_headers generated_kernel_headers
++LOCAL_HEADER_LIBRARIES        := display_headers generated_kernel_headers libbinder_headers
+ LOCAL_SRC_FILES               := hdmi.cpp
+ 
+ include $(BUILD_SHARED_LIBRARY)

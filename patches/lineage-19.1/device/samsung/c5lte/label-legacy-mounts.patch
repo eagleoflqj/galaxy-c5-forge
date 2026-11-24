@@ -1,0 +1,33 @@
+Keep the existing C5 file labels when init restores the mounted calibration tree.
+
+--- a/sepolicy/file_contexts
++++ b/sepolicy/file_contexts
+@@ -76,6 +76,28 @@
+ # TouchKey
+ /sys/class/sec/sec_touchkey/input/enabled u:object_r:sysfs_keypad:s0
+ 
++# Device used by the Qualcomm RPMB listener.
++/dev/block/mmcblk0rpmb -b                                      u:object_r:rpmb_device:s0
++
++# C5 firmware and calibration partitions are mounted at the root.
++/firmware(/.*)?                                                 u:object_r:firmware_file:s0
++/persist(/.*)?                                                  u:object_r:persist_file:s0
++/persist/alarm(/.*)?                                            u:object_r:persist_alarm_file:s0
++/persist/bluetooth(/.*)?                                        u:object_r:persist_bluetooth_file:s0
++/persist/bms(/.*)?                                              u:object_r:persist_bms_file:s0
++/persist/data(/.*)?                                             u:object_r:persist_drm_file:s0
++/persist/display(/.*)?                                          u:object_r:persist_display_file:s0
++/persist/drm(/.*)?                                              u:object_r:persist_drm_file:s0
++/persist/hlos_rfs(/.*)?                                         u:object_r:rfs_shared_hlos_file:s0
++/persist/misc(/.*)?                                             u:object_r:persist_misc_file:s0
++/persist/qti_fp(/.*)?                                           u:object_r:persist_qti_fp_file:s0
++/persist/rfs.*                                                  u:object_r:rfs_file:s0
++/persist/secnvm(/.*)?                                           u:object_r:persist_secnvm_file:s0
++/persist/sensors(/.*)?                                          u:object_r:sensors_persist_file:s0
++/persist/speccfg(/.*)?                                          u:object_r:regionalization_file:s0
++/persist/time(/.*)?                                             u:object_r:persist_time_file:s0
++/persist/vpp(/.*)?                                              u:object_r:persist_vpp_file:s0
++
+ # Uncrypt
+ /dev/block/platform/soc\.0/7824900\.sdhci/by-name/fota          u:object_r:misc_block_device:s0
+ 

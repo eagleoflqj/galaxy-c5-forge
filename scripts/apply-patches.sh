@@ -6,7 +6,7 @@ readonly project_dir
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/apply-patches.sh --workdir /absolute/android-work [--lineage-version 16.0|17.1|18.1]
+Usage: ./scripts/apply-patches.sh --workdir /absolute/android-work [--lineage-version 16.0|17.1|18.1|19.1]
 
 Applies the tracked c5lte source patches idempotently to the pinned Android
 worktree. It fails if a patch matches neither the forward nor reverse state.
@@ -52,6 +52,9 @@ if [[ -z "$lineage_version" ]]; then
     c7b3d4b65b79e2e0d6a891547ad138e1fcdafb56)
       lineage_version=17.1
       ;;
+    cbe1696822ac0165e00c64b89af3dc3190204893)
+      lineage_version=19.1
+      ;;
     75e412bbb78aa0009405f696d0d3775e995e64ca)
       lineage_version=18.1
       ;;
@@ -61,7 +64,7 @@ if [[ -z "$lineage_version" ]]; then
       ;;
   esac
 fi
-if [[ "$lineage_version" == 18.1 ]]; then
+if [[ "$lineage_version" == 18.1 || "$lineage_version" == 19.1 ]]; then
   patch_root="$project_dir/patches"
   device=device/samsung/c5lte
   audio=hardware/qcom-caf/msm8952/audio
@@ -87,25 +90,91 @@ if [[ "$lineage_version" == 18.1 ]]; then
   # These local inputs are prepared separately from the platform manifest.
   if [[ -d "$workdir/kernel/samsung/c5lte" ]]; then
     apply_source_patch lineage-18.1 kernel/samsung/c5lte export-c5-kernel-headers.patch
+    if [[ "$lineage_version" == 19.1 ]]; then
+      apply_source_patch lineage-19.1 kernel/samsung/c5lte initialize-wcnss-notifier-state.patch
+    fi
   fi
   if [[ -d "$workdir/vendor/samsung/c5lte" ]]; then
     apply_source_patch lineage-18.1 vendor/samsung/c5lte adapt-vendor-build-definitions.patch
+    if [[ "$lineage_version" == 19.1 ]]; then
+      "$project_dir/scripts/prepare-c5-jpeg.sh" "$workdir/vendor/samsung/c5lte/proprietary/vendor/lib"
+      apply_source_patch lineage-19.1 vendor/samsung/c5lte select-repaired-jpeg-encoder.patch
+    fi
   fi
-  apply_source_patch lineage-18.1 "$device" port-c5lte-to-android-11.patch
+  if [[ "$lineage_version" == 19.1 ]]; then
+    apply_source_patch lineage-18.1 "$device" port-c5lte-to-android-11.patch --exclude=power/power-c5lte.c --exclude=sepolicy/genfs_contexts --exclude=sepolicy/hwservice_contexts
+    apply_source_patch lineage-19.1 "$device" port-c5-power-hints.patch
+  else
+    apply_source_patch lineage-18.1 "$device" port-c5lte-to-android-11.patch
+  fi
   apply_source_patch shared "$device" 0003-use-csa1-stock-gnss-stack.patch '--include=libshims/gnss_hidl/*'
   install_source shared/device/samsung/c5lte/lights/Android.mk "$device/lights/Android.mk"
   install_source shared/device/samsung/c5lte/lights/lights.c "$device/lights/lights.c"
   install_source shared/device/samsung/c5lte/rootdir/etc/init.c5.zram.rc "$device/rootdir/etc/init.c5.zram.rc"
-  apply_source_patch lineage-18.1 hardware/samsung include-fingerprint-module.patch
+  if [[ "$lineage_version" == 19.1 ]]; then
+    apply_source_patch lineage-19.1 "$device" select-audio-hidl-4.patch
+    apply_source_patch lineage-19.1 "$device" restore-csa1-location.patch
+    apply_source_patch lineage-19.1 "$device" restore-camera-session-sockets.patch
+    apply_source_patch lineage-19.1 "$device" use-platform-camera-app.patch
+    apply_source_patch lineage-19.1 "$device" register-home-key-fingerprint-sensor.patch
+    apply_source_patch lineage-19.1 "$device" label-legacy-hwservices.patch
+    apply_source_patch lineage-19.1 hardware/interfaces filter-bus-registration-wakeups.patch
+    apply_source_patch lineage-19.1 system/bt retry-alarm-with-default-scheduling.patch
+    apply_source_patch lineage-19.1 system/bt negotiate-hci-version-on-registered-service.patch
+    apply_source_patch lineage-19.1 "$device" allow-pronto-firmware-startup.patch
+    apply_source_patch lineage-19.1 "$device" start-vendor-wcnss-service.patch
+    apply_source_patch lineage-19.1 "$device" install-prima-firmware-config.patch
+    apply_source_patch lineage-19.1 hardware/qcom-caf/wlan install-c5-wcnss-service-in-vendor.patch
+    apply_source_patch lineage-19.1 hardware/samsung repack-boot-when-kernel-changes.patch
+    apply_source_patch lineage-19.1 "$device" link-ppd-power-client.patch
+    install_source lineage-19.1/device/samsung/c5lte/ppd_power.cpp "$device/libshims/ppd_power.cpp"
+    apply_source_patch lineage-19.1 "$device" use-platform-ant-service.patch
+    apply_source_patch lineage-19.1 "$device" check-ant-art-jni-provider.patch
+    apply_source_patch lineage-19.1 "$device" select-android-12-qcom-policy.patch
+    apply_source_patch lineage-19.1 "$device" port-legacy-service-policy.patch
+    apply_source_patch lineage-19.1 "$device" label-legacy-mounts.patch
+    apply_source_patch lineage-19.1 "$device" label-c5-emmc-partitions.patch
+    apply_source_patch lineage-19.1 "$device" label-subsystem-names.patch
+    apply_source_patch lineage-19.1 device/qcom/sepolicy-legacy-um restrict-slot-management-to-hal-server.patch
+    apply_source_patch lineage-19.1 device/qcom/sepolicy-legacy-um scope-vendor-properties-to-hal-servers.patch
+    apply_source_patch lineage-19.1 "$device" package-legacy-vendor-blobs.patch
+    apply_source_patch lineage-19.1 "$device" resolve-conflicting-system-properties.patch
+    # Android 12L moved libbase out of system/core. The constructor ABI is unchanged.
+    apply_source_patch lineage-19.1 system/libbase restore-legacy-logmessage-constructor.patch
+    apply_source_patch lineage-19.1 hardware/qcom-caf/msm8952/display drop-unavailable-bfq-cgroup.patch
+    apply_source_patch lineage-19.1 hardware/qcom-caf/msm8952/display export-binder-headers-to-libhdmi.patch
+    apply_source_patch lineage-19.1 hardware/qcom-caf/msm8952/display read-complete-mdp-capabilities.patch
+    apply_source_patch lineage-19.1 vendor/lineage allow-read-only-build-manifest.patch
+    apply_source_patch lineage-18.1 hardware/samsung include-fingerprint-module.patch -C2
+    apply_source_patch lineage-18.1 bootable/recovery preserve-installed-recovery.patch -C2
+    apply_source_patch lineage-18.1 system/libhidl avoid-runtime-hal-startup-delays.patch -C2
+    apply_source_patch lineage-19.1 frameworks/av resolve-audio-policy-before-create-effect.patch
+    apply_source_patch lineage-19.1 build/soong prefer-local-java-shard-types.patch
+    apply_source_patch lineage-19.1 frameworks/av restore-camera-hal1.patch
+    apply_source_patch lineage-19.1 frameworks/av build-hal1-cameraserver-for-arm.patch
+    apply_source_patch lineage-19.1 packages/apps/Trebuchet migrate-snap-hotseat-item.patch
+    apply_source_patch lineage-19.1 frameworks/base restore-camera-hal1.patch
+    apply_source_patch lineage-18.1 frameworks/base restore-system-user-type.patch -C1
+    apply_source_patch lineage-19.1 frameworks/base handle-missing-fingerprint-error-text.patch
+    apply_source_patch lineage-19.1 frameworks/base finish-rejected-fingerprint-enumeration.patch
+    link="$workdir/hardware/qcom-caf/msm8952/Android.mk"
+    if [[ -L "$link" ]]; then
+      [[ $(readlink "$link") == ../common/os_pickup.mk ]]
+    else
+      ln -s ../common/os_pickup.mk "$link"
+    fi
+  else
+    apply_source_patch lineage-18.1 hardware/samsung include-fingerprint-module.patch
+    apply_source_patch lineage-18.1 bootable/recovery preserve-installed-recovery.patch
+    apply_source_patch lineage-18.1 system/core restore-legacy-logmessage-constructor.patch
+    apply_source_patch lineage-18.1 system/libhidl avoid-runtime-hal-startup-delays.patch
+    apply_source_patch lineage-18.1 frameworks/av resolve-audio-policy-before-create-effect.patch
+    apply_source_patch lineage-18.1 frameworks/base restore-system-user-type.patch
+    apply_source_patch shared frameworks/base 0001-handle-null-fingerprint-error-text-in-keyguard.patch
+    apply_source_patch shared packages/apps/Snap 0001-stop-preview-before-hdr-reconfiguration.patch
+  fi
   apply_source_patch shared hardware/samsung 0001-restore-bauth-fingerprint-hal.patch --exclude=Android.mk
-  apply_source_patch lineage-18.1 bootable/recovery preserve-installed-recovery.patch
   apply_source_patch lineage-18.1 hardware/interfaces preserve-bluetooth-service-groups.patch
-  apply_source_patch lineage-18.1 system/core restore-legacy-logmessage-constructor.patch
-  apply_source_patch lineage-18.1 system/libhidl avoid-runtime-hal-startup-delays.patch
-  apply_source_patch lineage-18.1 frameworks/av resolve-audio-policy-before-create-effect.patch
-  apply_source_patch lineage-18.1 frameworks/base restore-system-user-type.patch
-  apply_source_patch shared frameworks/base 0001-handle-null-fingerprint-error-text-in-keyguard.patch
-  apply_source_patch shared packages/apps/Snap 0001-stop-preview-before-hdr-reconfiguration.patch
   apply_source_patch shared packages/apps/Settings 0001-refresh-usb-debugging-switch-on-setting-change.patch --include=src/com/android/settings/development/AdbPreferenceController.java
   apply_source_patch lineage-18.1 packages/apps/Settings register-adb-preference-observer.patch
   apply_source_patch lineage-18.1 vendor/lineage generate-kernel-headers-for-each-abi.patch
@@ -116,7 +185,7 @@ if [[ "$lineage_version" == 18.1 ]]; then
   exit 0
 fi
 if [[ "$lineage_version" != 16.0 && "$lineage_version" != 17.1 ]]; then
-  echo "--lineage-version must be 16.0, 17.1 or 18.1" >&2
+  echo "--lineage-version must be 16.0, 17.1, 18.1 or 19.1" >&2
   exit 2
 fi
 

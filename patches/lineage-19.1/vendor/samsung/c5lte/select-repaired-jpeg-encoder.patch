@@ -1,0 +1,14 @@
+Package the C5 encoder with object-lifetime synchronization. The build prepares it from the original CSA1 file.
+Private vendor makefile provenance: https://github.com/vm03/android_device_samsung_c5lte/issues/1
+
+--- a/c5lte-vendor.mk
++++ b/c5lte-vendor.mk
+@@ -432,7 +432,7 @@
+     vendor/samsung/c5lte/proprietary/vendor/lib/libmmcamera_ubifocus_lib.so:$(TARGET_COPY_OUT_VENDOR)/lib/libmmcamera_ubifocus_lib.so \
+     vendor/samsung/c5lte/proprietary/vendor/lib/libmmcamera_vpu_module.so:$(TARGET_COPY_OUT_VENDOR)/lib/libmmcamera_vpu_module.so \
+     vendor/samsung/c5lte/proprietary/vendor/lib/libmmjpeg.so:$(TARGET_COPY_OUT_VENDOR)/lib/libmmjpeg.so \
+-    vendor/samsung/c5lte/proprietary/vendor/lib/libmmqjpeg_codec.so:$(TARGET_COPY_OUT_VENDOR)/lib/libmmqjpeg_codec.so \
++    vendor/samsung/c5lte/proprietary/vendor/lib/libmmqjpeg_codec.c5.so:$(TARGET_COPY_OUT_VENDOR)/lib/libmmqjpeg_codec.so \
+     vendor/samsung/c5lte/proprietary/vendor/lib/libmmqjpegdma.so:$(TARGET_COPY_OUT_VENDOR)/lib/libmmqjpegdma.so \
+     vendor/samsung/c5lte/proprietary/vendor/lib/libmmsw_detail_enhancement.so:$(TARGET_COPY_OUT_VENDOR)/lib/libmmsw_detail_enhancement.so \
+     vendor/samsung/c5lte/proprietary/vendor/lib/libmmsw_math.so:$(TARGET_COPY_OUT_VENDOR)/lib/libmmsw_math.so \

@@ -123,3 +123,41 @@ Once Android reports boot completion, HIDL skips the legacy one-second startup d
 The C5 sensor service uses the Bosch input node at `/sys/devices/virtual/input/input2`. The device policy labels that subtree `sysfs_sensors`. On the tested 4.9 build, Android enumerated the same 13 sensor types as on 17.1, and applications received accelerometer, device orientation and geomagnetic rotation events. The DC vibration motor uses the timed-output HAL and a single 50 ms long-press pulse. Long-press vibration and playback through the 3.5 mm headphone jack were confirmed on the handset.
 
 The final device overlay enables Android's NFC feedback for unsupported tags and read errors. The launcher test recorded the unsupported-tag message. A foreground app received the tag intent in a separate test. On this image the Settings homepage gained focus after a 1.698-second cold launch. The final BOOT and expanded SYSTEM digests and the hardware acceptance coverage are in the [18.1 release summary](../README.md#lineageos-181-for-the-sm-c5000).
+
+## LineageOS 19.1 source preparation
+
+The C5 Android 12L port uses API 32 and Linux 4.9.337 with a WCNSS driver fix and the Rev09 QCDT from the 18.1 release. Use a separate disk-backed build root for 19.1. From the forge checkout, initialize and sync the Android source with the following command.
+
+```sh
+./scripts/setup.sh --lineage-version 19.1 --workdir "$ROOT/android"
+```
+
+The locked manifest selects 1,151 projects. The 19.1 platform manifest omits the msm8952 CAF audio, display and media projects. The C5 local manifest adds the three revisions used by the 18.1 port and selects Samsung hardware from 19.1. Android 12L includes Camera2 in its handheld product. The C5 product keeps its camera provider and HAL and uses that platform camera app.
+
+Place the prepared CSA1 vendor tree and 4.9 kernel source in `$ROOT/android/vendor/samsung/c5lte` and `$ROOT/android/kernel/samsung/c5lte`. Use the Rev09 `boot/dt.img` from the prepared inputs or extract it from the published 17.1 BOOT using the [kernel build instructions](kernel-build.md#reusing-the-kernel-and-rev09-device-tree-on-android-11) for the Android 11 port. Use the pinned compilers and controller firmware listed in those notes. Apply the platform and kernel patches, then build and install the Android 12L kernel before packaging BOOT and Lineage Recovery.
+
+```sh
+./scripts/apply-patches.sh --workdir "$ROOT/android" --lineage-version 19.1
+./scripts/build-kernel.sh --lineage-version 19.1 "$ROOT/android/kernel/samsung/c5lte" "$ROOT/inputs/toolchains/clang" "$ROOT/inputs/toolchains/arm64" "$ROOT/inputs/toolchains/arm32" "$ROOT/inputs/firmware" "$ROOT/kernel-build" 8
+install -m644 "$ROOT/kernel-build/build/arch/arm64/boot/Image.gz" "$ROOT/android/vendor/samsung/c5lte/boot/Image.gz"
+```
+
+Bluetooth and WLAN share the Qualcomm Pronto subsystem. The kernel initializes its deferred power-management work and wakeup source before subscribing to Pronto events. A Bluetooth shutdown notification can otherwise reach an uninitialized timer before WLAN userspace starts. Android starts the WCNSS calibration service at `/vendor/bin/wcnss_service`, where the Qualcomm policy assigns its service domain. The image also provides the board INI as a regular file at `/system/etc/firmware/wlan/prima/WCNSS_qcom_cfg.ini` for the kernel firmware loader.
+
+The image keeps the C5 launch API level at 23 in `/vendor/build.prop` so Android 12L's ueventd loads the device's legacy rules. Both CSA1 ANT libraries import `jniThrowException`. Their ELF checks use the implementation from the ART APEX shipped on the phone.
+
+The C5 uses Android 12L's HIDL 4.0 audio and effect adapters with its legacy Qualcomm audio HAL. The stock display post-processing daemon uses a 64-bit compatibility library to acquire and release wake locks through Android's power service. The device policy labels the C5 eMMC partitions and RPMB node for the stock TEE and Keymaster 3 services.
+
+Android 12L registers the home-key fingerprint reader through the device’s framework resource overlay. It uses the HIDL 2.1 provider and the existing user enrollment store. The port configures Class 2 strength for screen unlock. If the Samsung HAL declines enumeration, the framework finishes the cleanup request and can schedule the next authentication.
+
+The C5 hardware composer reads display capabilities through `/sys/class/graphics/fb0/mdp/caps`. The Android 12L device policy assigns the graphics label to the underlying MDP node, and the legacy display library parses the kernel’s variable-length capability lists. Without the pipe counts, Android could render the lock screen while the hardware composer had no active scanout pipe.
+
+The CSA1 modem storage daemon discovers its shared memory through four UIO attributes (name, version, address and size). The board policy labels these attributes on the modem's UIO node so the daemon can register its storage service before GPS requests arrive. During suspend, the health service filters bus-driver registration and removal events on its uevent socket while retaining battery and USB power events.
+
+The C5 uses its msm8952 HAL1 wrapper around Samsung's CSA1 camera module. The Android 12L camera service supports that interface, and the Java Camera2 adapter exposes it to applications. The build derives the JPEG encoder from the pinned CSA1 library so that each encoder keeps its synchronization objects until destruction. The original vendor input remains available for future builds. The Bluetooth stack uses normal scheduling when the C5 kernel denies real-time scheduling to its worker threads.
+
+```sh
+./scripts/build.sh --lineage-version 19.1 --workdir "$ROOT/android" --target images --jobs 12
+```
+
+Use `--target recovery` to build and check Lineage Recovery independently. The C5 recovery check compares the packed kernel, ramdisk and device tree with their inputs and verifies the Android 12L properties, recovery executable, USB controller, ADB and partition map in the ramdisk.

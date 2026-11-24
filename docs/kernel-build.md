@@ -17,7 +17,9 @@ Place the original controller firmware under `tsp_zinitix/zt7538_c5.fw` and `abo
 ./scripts/build-kernel.sh "$SOURCE" "$CLANG" "$ARM64_GCC" "$ARM32_GCC" "$FIRMWARE" "$OUTPUT" 4
 ```
 
-The compressed kernel is `$OUTPUT/build/arch/arm64/boot/Image.gz`. Its expected SHA-256 is `eaead9f9166a04e28b84d0cf8beef54661b99a34422a14d596d989050fdff347`. The build sets a fixed link order for the techpack drivers. The original Kbuild enumerated them in filesystem order, which changed the final kernel even when every compiled leaf object matched.
+The compressed kernel is `$OUTPUT/build/arch/arm64/boot/Image.gz`. For the 17.1 and 18.1 builds its expected SHA-256 is `eaead9f9166a04e28b84d0cf8beef54661b99a34422a14d596d989050fdff347`. The build sets a fixed link order for the techpack drivers. The original Kbuild enumerated them in filesystem order, which changed the final kernel even when every compiled leaf object matched.
+
+The Android 12L build applies the WCNSS notifier patch before compiling. Its expected compressed kernel SHA-256 is `21685b136cb42c9528768ae0711035427f5a8ae675a7a8d04f4865c77e4c179e`. See the [19.1 build instructions](system-build.md#lineageos-191-source-preparation).
 
 A complete BOOT also contains the ramdisk, Rev09 device tree, Android boot header, Samsung trailer and an existing partition tail. The verified repack preserved these components from the reference full BOOT. The resulting full-partition digest is in the project README.
 

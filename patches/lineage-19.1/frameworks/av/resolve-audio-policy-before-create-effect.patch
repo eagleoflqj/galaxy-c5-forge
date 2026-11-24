@@ -1,0 +1,13 @@
+diff --git a/services/audioflinger/AudioFlinger.cpp b/services/audioflinger/AudioFlinger.cpp
+index 1dd41b3..79e01c5 100644
+--- a/services/audioflinger/AudioFlinger.cpp
++++ b/services/audioflinger/AudioFlinger.cpp
+@@ -3798,6 +3798,8 @@ status_t AudioFlinger::createEffect(const media::CreateEffectRequest& request,
+             ALOGV("createEffect got output %d", io);
+         }
+ 
++        // EffectChain queries audio policy. Its initialization can call back into AudioFlinger.
++        (void)AudioSystem::get_audio_policy_service();
+         Mutex::Autolock _l(mLock);
+ 
+         if (sessionId == AUDIO_SESSION_DEVICE) {

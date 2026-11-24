@@ -1,0 +1,18 @@
+Use the 32-bit cameraserver with the C5 HAL1 recording path, as in 18.1.
+The provider's shared VideoNativeHandleMetadata and the camera service's
+view of that structure must agree on the pointer size and offset. Keep
+cameraserver separate from mediaserver and use Binder handle transport.
+
+diff --git a/camera/cameraserver/Android.bp b/camera/cameraserver/Android.bp
+index 8ca8920..1069ed9 100644
+--- a/camera/cameraserver/Android.bp
++++ b/camera/cameraserver/Android.bp
+@@ -47,7 +47,7 @@ cc_binary {
+         "android.hardware.camera.device@3.2",
+         "android.hardware.camera.device@3.4",
+     ],
+-    compile_multilib: "first",
++    compile_multilib: "32",
+     cflags: [
+         "-Wall",
+         "-Wextra",

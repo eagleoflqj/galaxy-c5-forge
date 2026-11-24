@@ -1,0 +1,95 @@
+Parse all fields of the Linux 4.9 display capabilities, including its format lists.
+
+--- a/libqdutils/mdp_version.h
++++ b/libqdutils/mdp_version.h
+@@ -165,8 +165,6 @@
+ private:
+     bool updateSysFsInfo();
+     void updatePanelInfo();
+-    int tokenizeParams(char *inputParams, const char *delim,
+-                        char* tokenStr[], int *idx);
+     int mFd;
+     int mMDPVersion;
+     bool mHasOverlay;
+--- a/libqdutils/mdp_version.cpp
++++ b/libqdutils/mdp_version.cpp
+@@ -28,6 +28,7 @@
+  */
+ #include <cutils/log.h>
+ #include <linux/msm_mdp.h>
++#include <vector>
+ #include "mdp_version.h"
+ #include "qd_utils.h"
+ 
+@@ -149,22 +150,16 @@
+     close(mFd);
+ }
+ 
+-int MDPVersion::tokenizeParams(char *inputParams, const char *delim,
+-                                char* tokenStr[], int *idx) {
+-    char *tmp_token = NULL;
+-    char *temp_ptr;
+-    int index = 0;
+-    if (!inputParams) {
+-        return -1;
+-    }
+-    tmp_token = strtok_r(inputParams, delim, &temp_ptr);
+-    while (tmp_token != NULL) {
+-        tokenStr[index++] = tmp_token;
+-        tmp_token = strtok_r(NULL, " ", &temp_ptr);
+-    }
+-    *idx = index;
+-    return 0;
+-}
++static std::vector<char *> tokenizeParams(char *line) {
++    std::vector<char *> tokens;
++    char *remaining = nullptr;
++    for (char *token = strtok_r(line, TOKEN_PARAMS_DELIM, &remaining); token;
++         token = strtok_r(nullptr, " \t\r\n", &remaining)) {
++        tokens.push_back(token);
++    }
++    return tokens;
++}
++
+ // This function reads the sysfs node to read the primary panel type
+ // and updates information accordingly
+ void  MDPVersion::updatePanelInfo() {
+@@ -205,12 +200,8 @@
+         char property[PROPERTY_VALUE_MAX];
+         while((read = getline((char **)&readLine, &len,
+                               panelInfoNodeFP)) != -1) {
+-            int token_ct=0;
+-            char *tokens[10];
+-            memset(tokens, 0, sizeof(tokens));
+-
+-            if(!tokenizeParams(readLine, TOKEN_PARAMS_DELIM, tokens,
+-                               &token_ct)) {
++            const auto tokens = tokenizeParams(readLine);
++            if (tokens.size() >= 2) {
+                 if(!strncmp(tokens[0], "pu_en", strlen("pu_en"))) {
+                     mPanelInfo.mPartialUpdateEnable = atoi(tokens[1]);
+                     ALOGI("PartialUpdate status: %s",
+@@ -311,12 +302,8 @@
+     } else {
+         line = (char *) malloc(len);
+         while((read = getline(&line, &len, sysfsFd)) != -1) {
+-            int index=0;
+-            char *tokens[10];
+-            memset(tokens, 0, sizeof(tokens));
+-
+-            // parse the line and update information accordingly
+-            if(!tokenizeParams(line, TOKEN_PARAMS_DELIM, tokens, &index)) {
++            const auto tokens = tokenizeParams(line);
++            if (tokens.size() >= 2) {
+                 if(!strncmp(tokens[0], "hw_rev", strlen("hw_rev"))) {
+                     mMdpRev = atoi(tokens[1]);
+                 }
+@@ -357,7 +344,7 @@
+                         strlen("max_pipe_width"))) {
+                     mMaxPipeWidth = atoi(tokens[1]);
+                 } else if(!strncmp(tokens[0], "features", strlen("features"))) {
+-                    for(int i=1; i<index;i++) {
++                    for (size_t i = 1; i < tokens.size(); ++i) {
+                         if(!strncmp(tokens[i], "bwc", strlen("bwc"))) {
+                            mFeatures |= MDP_BWC_EN;
+                         } else if(!strncmp(tokens[i], "decimation",

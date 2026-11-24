@@ -1,0 +1,14 @@
+The CSA1 vendor makefile installs the stock daemons and shared libraries through PRODUCT_COPY_FILES. Select Android 12's per-board compatibility option for this vendor tree.
+
+diff --git a/BoardConfig.mk b/BoardConfig.mk
+--- a/BoardConfig.mk
++++ b/BoardConfig.mk
+@@ -17,3 +17,8 @@
+ 
+ # Include board config fragments
+ include device/samsung/c5lte/board/*.mk
++
++# The CSA1 vendor makefile installs its binary payloads with PRODUCT_COPY_FILES.
++BUILD_BROKEN_ELF_PREBUILT_PRODUCT_COPY_FILES := true
++
++TARGET_LD_SHIM_LIBS += /system/vendor/lib64/libmm-qdcm-diag.so|libshims_ppd_power.so

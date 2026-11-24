@@ -1,0 +1,64 @@
+Prevent C5 modem platform-driver add/remove notifications from waking healthd
+during task freezing. Android 12L takes an epoll wake lock before inspecting
+SUBSYSTEM. The observed /bus/platform/drivers/DATA5_CNTL events are outside
+the /devices hierarchy containing power supplies. Use a classic socket filter
+on kernel 4.9 and retain normal delivery if filter attachment fails.
+
+Upstream diagnosis and newer-kernel fix:
+https://android.googlesource.com/platform/hardware/interfaces/+/5c604b9a737453a93572a8f459b56bf62122f9cd
+https://issuetracker.google.com/issues/140330870
+
+diff --git a/health/utils/libhealthloop/HealthLoop.cpp b/health/utils/libhealthloop/HealthLoop.cpp
+index 3f4b5bc..83efa9b 100644
+--- a/health/utils/libhealthloop/HealthLoop.cpp
++++ b/health/utils/libhealthloop/HealthLoop.cpp
+@@ -21,6 +21,8 @@
+ 
+ #include <errno.h>
+ #include <libgen.h>
++#include <linux/filter.h>
++#include <sys/socket.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -154,6 +156,32 @@ void HealthLoop::UeventEvent(uint32_t /*epevents*/) {
+     }
+ }
+ 
++// Kernel bus registration events cannot come from a power_supply device. Drop
++// them before epoll takes its wake lock. All device events still reach UeventEvent.
++static void FilterBusRegistrationEvents(int fd) {
++    sock_filter instructions[] = {
++            BPF_STMT(BPF_LD | BPF_W | BPF_ABS, 0),
++            BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0x61646440, 0, 4),  // "add@"
++            BPF_STMT(BPF_LD | BPF_W | BPF_ABS, 4),
++            BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0x2f627573, 0, 8),  // "/bus"
++            BPF_STMT(BPF_LD | BPF_B | BPF_ABS, 8),
++            BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, '/', 5, 6),
++            BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0x72656d6f, 0, 5),  // "remo"
++            BPF_STMT(BPF_LD | BPF_W | BPF_ABS, 4),
++            BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0x7665402f, 0, 3),  // "ve@/"
++            BPF_STMT(BPF_LD | BPF_W | BPF_ABS, 8),
++            BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0x6275732f, 0, 1),  // "bus/"
++            BPF_STMT(BPF_RET | BPF_K, 0),
++            BPF_STMT(BPF_RET | BPF_K, UINT32_MAX),
++    };
++    sock_fprog program = {
++            static_cast<unsigned short>(sizeof(instructions) / sizeof(instructions[0])),
++            instructions};
++    if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &program, sizeof(program)) < 0) {
++        KLOG_ERROR(LOG_TAG, "Cannot filter bus registration uevents: %s\n", strerror(errno));
++    }
++}
++
+ void HealthLoop::UeventInit(void) {
+     uevent_fd_.reset(uevent_open_socket(64 * 1024, true));
+ 
+@@ -162,6 +190,7 @@ void HealthLoop::UeventInit(void) {
+         return;
+     }
+ 
++    FilterBusRegistrationEvents(uevent_fd_);
+     fcntl(uevent_fd_, F_SETFL, O_NONBLOCK);
+     if (RegisterEvent(uevent_fd_, &HealthLoop::UeventEvent, EVENT_WAKEUP_FD))
+         KLOG_ERROR(LOG_TAG, "register for uevent events failed\n");

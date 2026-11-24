@@ -1,0 +1,16 @@
+--- a/Android.mk
++++ b/Android.mk
+@@ -161,6 +161,13 @@
+ 
+ ALL_DEFAULT_INSTALLED_MODULES += $(PLAYREADY_SYMLINKS)
+ 
++# The CSA1 ANT JNI library uses jniThrowException from the installed ART APEX.
++# Include the implementation alongside the SDK stub in both ELF checks.
++TARGET_DEPENDENCIES_ON_SHARED_LIBRARIES += \
++    libantradio:$(TARGET_OUT_SHARED_LIBRARIES)/libantradio.so:libnativehelper.com.android.art
++$(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_DEPENDENCIES_ON_SHARED_LIBRARIES += \
++    libantradio$(TARGET_2ND_ARCH_MODULE_SUFFIX):$($(TARGET_2ND_ARCH_VAR_PREFIX)TARGET_OUT_SHARED_LIBRARIES)/libantradio.so:libnativehelper.com.android.art
++
+ QDSP6M_IMAGES := \
+     qdsp6m.qdp qdsp6m.qdb
+ 

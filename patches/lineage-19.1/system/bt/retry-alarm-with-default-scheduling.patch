@@ -1,0 +1,54 @@
+--- a/osi/src/alarm.cc
++++ b/osi/src/alarm.cc
+@@ -678,7 +678,14 @@
+   sigevent.sigev_notify = SIGEV_THREAD;
+   sigevent.sigev_notify_function = (void (*)(union sigval))timer_callback;
+   sigevent.sigev_notify_attributes = &thread_attr;
+-  if (timer_create(clock_id, &sigevent, timer) == -1) {
++  int result = timer_create(clock_id, &sigevent, timer);
++  if (result == -1 && errno == EPERM) {
++    // Legacy CPU cgroups may have no real-time budget for the Bluetooth app.
++    sigevent.sigev_notify_attributes = nullptr;
++    result = timer_create(clock_id, &sigevent, timer);
++  }
++  pthread_attr_destroy(&thread_attr);
++  if (result == -1) {
+     LOG_ERROR("%s unable to create timer with clock %d: %s", __func__, clock_id,
+               strerror(errno));
+     if (clock_id == CLOCK_BOOTTIME_ALARM) {
+--- a/stack/btu/btu_task.cc
++++ b/stack/btu/btu_task.cc
+@@ -121,7 +121,7 @@
+     LOG(FATAL) << __func__ << ": unable to start btu message loop thread.";
+   }
+   if (!main_thread.EnableRealTimeScheduling()) {
+-    LOG(FATAL) << __func__ << ": unable to enable real time scheduling";
++    LOG(WARNING) << __func__ << ": using normal scheduling for the BTU thread";
+   }
+ }
+ 
+--- a/hci/src/hci_layer.cc
++++ b/hci/src/hci_layer.cc
+@@ -233,8 +233,7 @@
+     goto error;
+   }
+   if (!hci_thread.EnableRealTimeScheduling()) {
+-    LOG_ERROR("%s unable to make thread RT.", __func__);
+-    goto error;
++    LOG_WARN("%s using normal scheduling for the HCI thread.", __func__);
+   }
+ 
+   commands_pending_response = list_new(NULL);
+diff --git a/btif/src/btif_a2dp_source.cc b/btif/src/btif_a2dp_source.cc
+index 19bf998..84e22e9 100644
+--- a/btif/src/btif_a2dp_source.cc
++++ b/btif/src/btif_a2dp_source.cc
+@@ -358,7 +358,7 @@ bool btif_a2dp_source_startup(void) {
+ static void btif_a2dp_source_startup_delayed() {
+   LOG_INFO("%s: state=%s", __func__, btif_a2dp_source_cb.StateStr().c_str());
+   if (!btif_a2dp_source_thread.EnableRealTimeScheduling()) {
+-    LOG(FATAL) << __func__ << ": unable to enable real time scheduling";
++    LOG(WARNING) << __func__ << ": using normal scheduling for A2DP audio";
+   }
+   if (!bluetooth::audio::a2dp::init(&btif_a2dp_source_thread)) {
+     if (btif_av_is_a2dp_offload_enabled()) {

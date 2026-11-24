@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+hash_file=baseline.sha256
+if [[ ${1:-} == --lineage-version && ${2:-} == 19.1 ]]; then
+    hash_file=lineage-19.1.sha256
+    shift 2
+fi
 if [[ $# != 7 ]]; then
-    echo "Usage: $0 SOURCE CLANG ARM64_GCC ARM32_GCC FIRMWARE NEW_OUTPUT JOBS" >&2
+    echo "Usage: $0 [--lineage-version 19.1] SOURCE CLANG ARM64_GCC ARM32_GCC FIRMWARE NEW_OUTPUT JOBS" >&2
     exit 2
 fi
 
@@ -24,11 +29,13 @@ mkdir -- "$output"
 mkdir -- "$output/build" "$output/tmp"
 cp -- "$repo/kernel/config/c5lte.config" "$output/build/.config"
 
+# The inner shell expands the job count in the quoted build command.
+# shellcheck disable=SC2016
 bwrap --unshare-all --die-with-parent --new-session --clearenv --tmpfs / \
     --ro-bind /usr /usr --symlink usr/bin /bin --symlink usr/lib /lib --symlink usr/lib64 /lib64 \
     --proc /proc --dev /dev --ro-bind /etc/ld.so.cache /etc/ld.so.cache \
     --ro-bind /etc/alternatives /etc/alternatives --dir /c5-runtime/bin --symlink /usr/bin/python3 /c5-runtime/bin/python \
-    --ro-bind "$source_tree" /kernel --ro-bind "$repo/kernel/techpack.Kbuild" /kernel/techpack/Kbuild --ro-bind "$repo/kernel/extra" /extra \
+    --ro-bind "$repo/kernel/config/$hash_file" /kernel.sha256 --ro-bind "$source_tree" /kernel --ro-bind "$repo/kernel/techpack.Kbuild" /kernel/techpack/Kbuild --ro-bind "$repo/kernel/extra" /extra \
     --ro-bind "$firmware" /c5-firmware --ro-bind "$clang" /clang --ro-bind "$arm64" /toolchain --ro-bind "$arm32" /arm32 \
     --bind "$output/build" /build --bind "$output/tmp" /tmp --chdir /kernel \
     --setenv PATH /clang/bin:/toolchain/bin:/arm32/bin:/c5-runtime/bin:/usr/bin:/bin \
@@ -45,5 +52,5 @@ dc4c0463ce1ac14c71b3fd3f91df0269629932ae02e20cde918eb363c689c0cc  /c5-firmware/a
 CHECK
         make O=/build CC=clang olddefconfig
         make O=/build CC=clang -j"$1" KCFLAGS="-idirafter/extra -ferror-limit=0" Image.gz
-        echo "eaead9f9166a04e28b84d0cf8beef54661b99a34422a14d596d989050fdff347  /build/arch/arm64/boot/Image.gz" | sha256sum -c -
+        (cd /build/arch/arm64/boot && sha256sum -c /kernel.sha256)
     ' bash "$jobs"

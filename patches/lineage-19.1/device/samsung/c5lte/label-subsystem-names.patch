@@ -1,0 +1,23 @@
+--- /dev/null
++++ b/sepolicy/genfs_contexts
+@@ -0,0 +1,20 @@
++# The Qualcomm peripheral manager reads these subsystem names during discovery.
++genfscon sysfs /devices/soc.0/1de0000.qcom,venus/subsys0/name u:object_r:sysfs_data:s0
++genfscon sysfs /devices/soc.0/c200000.qcom,lpass/subsys1/name u:object_r:sysfs_data:s0
++genfscon sysfs /devices/soc.0/a21b000.qcom,pronto/subsys2/name u:object_r:sysfs_data:s0
++genfscon sysfs /devices/soc.0/4080000.qcom,mss/subsys3/name u:object_r:sysfs_data:s0
++
++genfscon sysfs /devices/platform/battery/power_supply u:object_r:sysfs_batteryinfo:s0
++genfscon sysfs /devices/platform/i2c@11/i2c-12/12-0071/power_supply u:object_r:sysfs_batteryinfo:s0
++genfscon sysfs /devices/platform/sec-multi-charger/power_supply u:object_r:sysfs_batteryinfo:s0
++genfscon sysfs /devices/soc.0/soc:i2c@13/i2c-9/9-0049/sm5705-charger/power_supply u:object_r:sysfs_batteryinfo:s0
++genfscon sysfs /devices/soc.0/soc:i2c@13/i2c-9/9-0058/power_supply u:object_r:sysfs_batteryinfo:s0
++genfscon sysfs /devices/soc.0/1a00000.qcom,mdss_mdp/1a00000.qcom,mdss_mdp:qcom,mdss_fb_primary/leds/lcd-backlight u:object_r:sysfs_leds:s0
++genfscon sysfs /devices/virtual/input/input2 u:object_r:sysfs_sensors:s0
++genfscon sysfs /devices/soc.0/1a00000.qcom,mdss_mdp/caps u:object_r:sysfs_graphics:s0
++
++# rmt_storage discovers the modem's shared buffer through these UIO attributes.
++genfscon sysfs /devices/soc.0/0.qcom,rmtfs_sharedmem/uio/uio0/name u:object_r:sysfs_uio_file:s0
++genfscon sysfs /devices/soc.0/0.qcom,rmtfs_sharedmem/uio/uio0/version u:object_r:sysfs_uio_file:s0
++genfscon sysfs /devices/soc.0/0.qcom,rmtfs_sharedmem/uio/uio0/maps/map0/addr u:object_r:sysfs_uio_file:s0
++genfscon sysfs /devices/soc.0/0.qcom,rmtfs_sharedmem/uio/uio0/maps/map0/size u:object_r:sysfs_uio_file:s0

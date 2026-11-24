@@ -7,7 +7,7 @@ readonly project_dir
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/setup.sh --workdir /absolute/android-work [--lineage-version 16.0|17.1|18.1] [--jobs N] [--no-sync]
+Usage: ./scripts/setup.sh --workdir /absolute/android-work [--lineage-version 16.0|17.1|18.1|19.1] [--jobs N] [--no-sync]
 
 Initializes the selected pinned LineageOS manifest and installs its fixed c5lte
 local manifest. Project revisions come from manifests/locked/. By default it
@@ -76,8 +76,14 @@ case "$lineage_version" in
     locked_manifest="${project_dir}/manifests/locked/lineage-18.1.xml"
     log_version=18.1
     ;;
+  19.1)
+    manifest_commit='cbe1696822ac0165e00c64b89af3dc3190204893'
+    local_manifest_source="${project_dir}/manifests/local/c5lte-lineage-19.1.xml"
+    locked_manifest="${project_dir}/manifests/locked/lineage-19.1.xml"
+    log_version=19.1
+    ;;
   *)
-    echo "--lineage-version must be 16.0, 17.1 or 18.1" >&2
+    echo "--lineage-version must be 16.0, 17.1, 18.1 or 19.1" >&2
     exit 2
     ;;
 esac
@@ -109,12 +115,15 @@ fi
 
 log_dir="${project_dir}/logs"
 repo_flags=()
-if [[ "$lineage_version" == 18.1 ]]; then
+if [[ "$lineage_version" == 18.1 || "$lineage_version" == 19.1 ]]; then
   root=$(dirname "$(realpath "$workdir")")
   export HOME="$root/home" TMPDIR="$root/tmp" GIT_ALLOW_PROTOCOL=https GIT_LFS_SKIP_SMUDGE=1
   log_dir="$root/logs"
   install -d -m 700 "$HOME" "$TMPDIR"
   repo_flags+=(--repo-rev=v2.54)
+fi
+if [[ "$lineage_version" == 19.1 ]]; then
+  repo_flags+=(--no-use-superproject)
 fi
 cd "$workdir"
 repo init "${repo_flags[@]}" \
@@ -124,8 +133,8 @@ repo init "${repo_flags[@]}" \
   --no-clone-bundle \
   --no-tags
 
-if [[ "$lineage_version" == 18.1 && $(git -C .repo/repo rev-parse HEAD) != 97dc5c1bd9527c2abe2183b16a4b7ef037dc34a7 ]]; then
-  echo "Unexpected git-repo version for LineageOS 18.1" >&2
+if [[ ${#repo_flags[@]} != 0 && $(git -C .repo/repo rev-parse HEAD) != 97dc5c1bd9527c2abe2183b16a4b7ef037dc34a7 ]]; then
+  echo "Unexpected git-repo version for LineageOS $lineage_version" >&2
   exit 1
 fi
 mkdir -p .repo/local_manifests

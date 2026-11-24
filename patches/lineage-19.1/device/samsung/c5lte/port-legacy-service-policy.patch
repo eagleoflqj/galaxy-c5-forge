@@ -1,0 +1,101 @@
+Keep the CSA1 peripheral service on framework Binder, label its legacy time directory and restrict the RIL write permission to the C5 persistent radio properties. Drop unused direct sensor and filesystem bypass permissions.
+
+diff --git a/sepolicy/property.te b/sepolicy/property.te
+--- a/sepolicy/property.te
++++ b/sepolicy/property.te
+@@ -1 +1,3 @@
+-type rmt_storage_prop, property_type;
++vendor_internal_prop(rmt_storage_prop)
++vendor_internal_prop(c5_ril_prop)
++vendor_internal_prop(c5_keymaster_ready_prop)
+diff --git a/sepolicy/property_contexts b/sepolicy/property_contexts
+--- a/sepolicy/property_contexts
++++ b/sepolicy/property_contexts
+@@ -1,4 +1,8 @@
+ service.camera.hdmi_preview    u:object_r:camera_prop:s0
+ service.camera.samsung.enabled u:object_r:camera_prop:s0
+ storage.efs_sync.done          u:object_r:rmt_storage_prop:s0
+-persist.ril.                   u:object_r:system_radio_prop:s0
++persist.ril.                   u:object_r:c5_ril_prop:s0
++sys.keymaster.loaded           u:object_r:c5_keymaster_ready_prop:s0 exact string
++sys.listeners.registered       u:object_r:vendor_tee_listener_prop:s0 exact string
++sys.qseecomd.enable            u:object_r:vendor_tee_listener_prop:s0 exact string
++persist.camera.HAL3.enabled    u:object_r:camera_prop:s0 exact bool
+diff --git a/sepolicy/rild.te b/sepolicy/rild.te
+--- a/sepolicy/rild.te
++++ b/sepolicy/rild.te
+@@ -2,4 +2,4 @@
+ 
+ r_dir_file(rild, app_efs_file)
+ 
+-set_prop(rild, system_radio_prop)
++set_prop(rild, c5_ril_prop)
+diff --git a/sepolicy/file_contexts b/sepolicy/file_contexts
+--- a/sepolicy/file_contexts
++++ b/sepolicy/file_contexts
+@@ -71,6 +71,8 @@
+ /sys/devices/virtual/sensors/light_sensor(/.*)?                 u:object_r:sysfs_sensors:s0
+ /sys/devices/virtual/sensors/proximity_sensor(/.*)?             u:object_r:sysfs_sensors:s0
+ 
++/data/time(/.*)?                                                u:object_r:time_data_file:s0
++
+ # TouchKey
+ /sys/class/sec/sec_touchkey/input/enabled u:object_r:sysfs_keypad:s0
+ 
+diff --git a/sepolicy/system_server.te b/sepolicy/system_server.te
+--- a/sepolicy/system_server.te
++++ b/sepolicy/system_server.te
+@@ -1,5 +1,4 @@
+ allow system_server sensors_data_file:file rw_file_perms;
+-allow system_server iio_device:chr_file r_file_perms;
+ 
+ r_dir_file(system_server, app_efs_file)
+ # To improve app launch times - we would like to force all tasks to
+diff --git a/sepolicy/netmgrd.te b/sepolicy/netmgrd.te
+deleted file mode 100644
+--- a/sepolicy/netmgrd.te
++++ /dev/null
+@@ -1 +0,0 @@
+-allow netmgrd self:capability dac_override;
+diff --git a/sepolicy/peripheral_manager.te b/sepolicy/peripheral_manager.te
+new file mode 100644
+--- /dev/null
++++ b/sepolicy/peripheral_manager.te
+@@ -0,0 +1,5 @@
++# CSA1 clients use the framework Binder driver to reach the peripheral manager.
++type binder_per_mgr_service, service_manager_type;
++binder_use(vendor_per_mgr)
++add_service(vendor_per_mgr, binder_per_mgr_service)
++allow { audioserver rild system_server } binder_per_mgr_service:service_manager find;
+diff --git a/sepolicy/service_contexts b/sepolicy/service_contexts
+new file mode 100644
+--- /dev/null
++++ b/sepolicy/service_contexts
+@@ -0,0 +1 @@
++vendor.qcom.PeripheralManager u:object_r:binder_per_mgr_service:s0
+diff --git a/sepolicy/legacy_data.te b/sepolicy/legacy_data.te
+new file mode 100644
+--- /dev/null
++++ b/sepolicy/legacy_data.te
+@@ -0,0 +1,12 @@
++# CSA1 keeps these directories in core /data across system upgrades.
++typeattribute biometrics_data_file core_data_file_type;
++typeattribute gps_data_file core_data_file_type;
++
++# Keep the existing /data/time label separate from Qualcomm's /data/vendor/time.
++type time_data_file, file_type, data_file_type, core_data_file_type;
++
++allow time_daemon time_data_file:dir w_dir_perms;
++allow time_daemon time_data_file:file create_file_perms;
++
++# The C5 fstab mounts calibration storage at the root rather than /mnt/vendor.
++allow init persist_file:dir mounton;
+diff --git a/sepolicy/legacy_keymaster.te b/sepolicy/legacy_keymaster.te
+new file mode 100644
+--- /dev/null
++++ b/sepolicy/legacy_keymaster.te
+@@ -0,0 +1,4 @@
++# The CSA1 TEE listener signals readiness to both hardware-backed HALs.
++set_prop(tee, c5_keymaster_ready_prop)
++get_prop(hal_keymaster_default, c5_keymaster_ready_prop)
++get_prop(hal_gatekeeper_default, c5_keymaster_ready_prop)

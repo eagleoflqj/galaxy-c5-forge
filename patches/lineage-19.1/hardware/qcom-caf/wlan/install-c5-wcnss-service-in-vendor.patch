@@ -1,0 +1,13 @@
+Run the C5 calibration service at the path labeled wcnss_service_exec.
+
+--- a/wcnss-service/Android.mk
++++ b/wcnss-service/Android.mk
+@@ -4,7 +4,7 @@
+ 
+ include $(CLEAR_VARS)
+ 
+-ifeq ($(PRODUCT_VENDOR_MOVE_ENABLED),true)
++ifneq (,$(filter true,$(PRODUCT_VENDOR_MOVE_ENABLED))$(filter c5lte,$(TARGET_DEVICE)))
+ LOCAL_VENDOR_MODULE := true
+ endif
+ 

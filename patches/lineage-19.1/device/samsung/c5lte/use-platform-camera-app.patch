@@ -1,0 +1,14 @@
+Use the platform Camera2 application with the C5's HAL1 wrapper.
+
+--- a/product/qcom-camera.mk
++++ b/product/qcom-camera.mk
+@@ -3,8 +3,7 @@
+     android.hardware.camera.provider@2.4-impl \
+     android.hardware.camera.provider@2.4-service \
+     camera.msm8952 \
+-    libshims_camera \
+-    Snap
++    libshims_camera
+ 
+ # Permissions
+ PRODUCT_COPY_FILES += \

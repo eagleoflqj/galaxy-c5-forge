@@ -1,0 +1,24 @@
+Install the board INI alongside the Prima firmware loaded by ueventd.
+
+--- a/Android.mk
++++ b/Android.mk
+@@ -217,10 +217,4 @@
+ 
+ ALL_DEFAULT_INSTALLED_MODULES += $(FIRMWARE_WIDEVINE_SYMLINKS)
+ 
+-# Create a link for the WCNSS config file, which ends up as a writable
+-# # version in /data/misc/wifi
+-$(shell mkdir -p $(TARGET_OUT)/etc/firmware/wlan/prima; \
+-    ln -sf /data/vendor/wifi/WCNSS_qcom_cfg.ini \
+-	    $(TARGET_OUT)/etc/firmware/wlan/prima/WCNSS_qcom_cfg.ini)
+-
+ endif
+--- a/product/qcom-wifi.mk
++++ b/product/qcom-wifi.mk
+@@ -33,5 +33,6 @@
+ 
+ PRODUCT_COPY_FILES += \
+     $(LOCAL_PATH)/wifi/WCNSS_qcom_cfg.ini:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/WCNSS_qcom_cfg.ini \
++    $(LOCAL_PATH)/wifi/WCNSS_qcom_cfg.ini:system/etc/firmware/wlan/prima/WCNSS_qcom_cfg.ini \
+     $(LOCAL_PATH)/wifi/WCNSS_cfg.dat:system/etc/firmware/wlan/prima/WCNSS_cfg.dat \
+     $(LOCAL_PATH)/wifi/WCNSS_qcom_wlan_nv.bin:system/etc/firmware/wlan/prima/WCNSS_qcom_wlan_nv.bin
